@@ -59,7 +59,7 @@ export class ValidationService {
       return SourceValidationResultSchema.parse(result);
 
     } catch (error) {
-      logger.error('Source URL validation error', { url, error });
+      logger.error('Source URL validation error', { url, error: error as Error });
       
       return {
         isValid: false,
@@ -146,7 +146,7 @@ export class ValidationService {
       return validatedReport;
 
     } catch (error) {
-      logger.error('Source validation failed', { error });
+      logger.error('Source validation failed', { error: error as Error });
       throw error;
     }
   }

@@ -14,7 +14,7 @@ export class Logger {
 
   constructor(serviceName: string = 'ask-eve-assist') {
     this.winston = winston.createLogger({
-      level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+      level: process.env['NODE_ENV'] === 'production' ? 'info' : 'debug',
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
@@ -103,7 +103,7 @@ export class Logger {
     
     // Extract error details if present
     if (context?.error) {
-      sanitizedContext.error = {
+      sanitizedContext['error'] = {
         name: context.error.name,
         message: context.error.message,
         stack: context.error.stack
@@ -126,7 +126,7 @@ export class Logger {
     this.winston.error(`[CRITICAL] ${message}`, criticalContext);
     
     // In production, this could trigger additional alerting mechanisms
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env['NODE_ENV'] === 'production') {
       // Could send to external monitoring service like Sentry, DataDog, etc.
       console.error(`CRITICAL SAFETY EVENT: ${message}`, criticalContext);
     }
@@ -264,7 +264,7 @@ export class Logger {
         sanitized[key] = this.sanitizeUserId(value);
       } else if (key === 'message' || key === 'userMessage') {
         // Hash the message content for audit trail without storing PII
-        sanitized.messageHash = this.hashString(String(value));
+        sanitized['messageHash'] = this.hashString(String(value));
       } else {
         sanitized[key] = value;
       }

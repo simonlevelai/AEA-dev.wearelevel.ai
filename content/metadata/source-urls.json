@@ -1,0 +1,59 @@
+{
+  "version": "1.0.0",
+  "description": "Maps processed content chunks to their source URLs on eveappeal.org.uk",
+  "lastUpdated": "2025-01-04T00:00:00Z",
+  "documentSources": {
+    "example-document-id": {
+      "filename": "example-document.pdf",
+      "sourceUrl": "https://eveappeal.org.uk/documents/example-document.pdf",
+      "title": "Example PiF Approved Document",
+      "lastReviewed": "2024-12-01",
+      "pifApprovalDate": "2024-11-15",
+      "chunks": [
+        {
+          "chunkId": "doc1-chunk1",
+          "sourceUrl": "https://eveappeal.org.uk/documents/example-document.pdf",
+          "sourcePage": 1,
+          "section": "Introduction",
+          "content": "First chunk preview...",
+          "keywords": ["keyword1", "keyword2"]
+        }
+      ]
+    }
+  },
+  "webPageSources": {
+    "example-page-id": {
+      "pageUrl": "https://eveappeal.org.uk/support/contact-us",
+      "title": "Contact Information",
+      "lastCrawled": "2025-01-04T00:00:00Z",
+      "chunks": [
+        {
+          "chunkId": "web1-chunk1", 
+          "sourceUrl": "https://eveappeal.org.uk/support/contact-us",
+          "section": "Nurse Line Hours",
+          "content": "Contact information chunk...",
+          "keywords": ["contact", "support", "nurse"]
+        }
+      ]
+    }
+  },
+  "validationRules": {
+    "mandatoryFields": ["chunkId", "sourceUrl", "content"],
+    "urlValidation": {
+      "mustStartWith": "https://eveappeal.org.uk",
+      "mustBeAccessible": true
+    },
+    "contentIntegrity": {
+      "preserveMedicalContext": true,
+      "maintainEmergencyInfo": true,
+      "requireSourceAttribution": true
+    }
+  },
+  "statistics": {
+    "totalChunks": 0,
+    "pifDocumentChunks": 0,
+    "webPageChunks": 0,
+    "averageChunkSize": 0,
+    "sourcesWithoutUrls": 0
+  }
+}

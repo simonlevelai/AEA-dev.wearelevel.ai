@@ -136,7 +136,7 @@ async function ingestContent(): Promise<void> {
     process.exit(hasErrors ? 1 : 0);
 
   } catch (error) {
-    logger.error('Content ingestion script failed', { error });
+    logger.error('Content ingestion script failed', { error: error as Error });
     console.error('❌ Content ingestion failed:', error);
     process.exit(1);
   }

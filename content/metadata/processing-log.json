@@ -1,0 +1,40 @@
+{
+  "version": "1.0.0",
+  "description": "Tracks content processing history and validation results",
+  "logs": [],
+  "schema": {
+    "logEntry": {
+      "timestamp": "ISO 8601 datetime",
+      "operation": "process-pdf | crawl-web | validate-sources | index-content",
+      "status": "success | warning | error",
+      "sourceFile": "filename or URL",
+      "chunksGenerated": "number of chunks created",
+      "sourceUrlsValidated": "number of URLs checked",
+      "errors": ["array of error messages"],
+      "warnings": ["array of warning messages"],
+      "metrics": {
+        "processingTimeMs": "milliseconds taken",
+        "contentSizeBytes": "size of processed content",
+        "embeddingTokens": "tokens used for embeddings"
+      }
+    }
+  },
+  "currentProcessingRun": {
+    "startedAt": null,
+    "completedAt": null,
+    "status": "not-started",
+    "totalDocuments": 0,
+    "processedDocuments": 0,
+    "failedDocuments": 0,
+    "totalChunks": 0,
+    "totalTokensUsed": 0
+  },
+  "validationSummary": {
+    "lastValidation": null,
+    "totalContentItems": 0,
+    "itemsWithSourceUrls": 0,
+    "missingSourceUrls": [],
+    "brokenSourceUrls": [],
+    "validationErrors": []
+  }
+}

@@ -18,7 +18,9 @@
     "crawl": "ts-node scripts/crawl-website.ts",
     "ingest": "ts-node scripts/ingest-content.ts",
     "setup-index": "ts-node scripts/setup-search-index.ts",
-    "validate-sources": "ts-node scripts/validate-sources.ts"
+    "validate-sources": "ts-node scripts/validate-sources.ts",
+    "process-pif": "ts-node scripts/simple-pif-processor.ts",
+    "crawl-comprehensive": "ts-node scripts/comprehensive-crawler.ts"
   },
   "keywords": [
     "health",

@@ -56,11 +56,10 @@ azure-pipelines.yml
 *.tmp
 *.temp
 
-# Health service specific
-content/documents/*
-!content/documents/.gitkeep
-content/indexes/*
-!content/indexes/.gitkeep
+# Health service specific - keep source PDFs, ignore processed content
+content/processed/*
+!content/processed/.gitignore
+content/metadata/*.log
 
 # Do not commit secrets
 secrets.json
