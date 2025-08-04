@@ -308,3 +308,6 @@ export class Logger {
     });
   }
 }
+
+// Export default logger instance
+export const logger = new Logger();

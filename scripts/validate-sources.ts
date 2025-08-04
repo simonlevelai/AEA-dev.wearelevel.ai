@@ -20,9 +20,9 @@ async function validateAllSources(): Promise<void> {
 
     // Initialize services
     const searchConfig: SearchConfig = {
-      endpoint: process.env.AZURE_SEARCH_ENDPOINT!,
-      apiKey: process.env.AZURE_SEARCH_API_KEY || '',
-      indexName: process.env.AZURE_SEARCH_INDEX_NAME || 'askeve-content'
+      endpoint: process.env['AZURE_SEARCH_ENDPOINT']!,
+      apiKey: process.env['AZURE_SEARCH_API_KEY'] || '',
+      indexName: process.env['AZURE_SEARCH_INDEX_NAME'] || 'askeve-content'
     };
 
     const searchService = new SearchService(searchConfig);

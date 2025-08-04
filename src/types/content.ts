@@ -105,6 +105,73 @@ export const SearchConfigSchema = z.object({
 export type SearchConfig = z.infer<typeof SearchConfigSchema>;
 
 /**
+ * Website crawl configuration
+ */
+export const CrawlConfigSchema = z.object({
+  baseUrl: z.string().url(),
+  rateLimit: z.object({
+    maxConcurrent: z.number().int().positive(),
+    delayBetweenRequests: z.number().int().nonnegative(),
+    respectRobotsTxt: z.boolean(),
+    userAgent: z.string().min(1)
+  }),
+  includePatterns: z.array(z.string()),
+  excludePatterns: z.array(z.string()),
+  contentSelectors: z.object({
+    title: z.string(),
+    content: z.string(),
+    exclude: z.string()
+  }),
+  validation: z.object({
+    minContentLength: z.number().int().positive(),
+    maxContentLength: z.number().int().positive(),
+    requiredSections: z.array(z.string())
+  })
+});
+
+export type CrawlConfig = z.infer<typeof CrawlConfigSchema>;
+
+/**
+ * Crawled page data
+ */
+export const CrawledPageSchema = z.object({
+  url: z.string().url(),
+  title: z.string(),
+  content: z.string(),
+  sourceUrl: z.string().url(),
+  crawledAt: z.date(),
+  contentLength: z.number().int().nonnegative(),
+  links: z.array(z.string()),
+  metadata: z.record(z.any()).optional()
+});
+
+export type CrawledPage = z.infer<typeof CrawledPageSchema>;
+
+/**
+ * Content ingestion configuration
+ */
+export const IngestionConfigSchema = z.object({
+  apiKey: z.string(),
+  embeddingModel: z.string().default('text-embedding-ada-002'),
+  maxTokensPerChunk: z.number().int().positive().default(8000),
+  chunkOverlap: z.number().int().nonnegative().default(200)
+});
+
+export type IngestionConfig = z.infer<typeof IngestionConfigSchema>;
+
+/**
+ * Content processing result
+ */
+export const ProcessingResultSchema = z.object({
+  success: z.boolean(),
+  totalFiles: z.number().int().nonnegative(),
+  chunksCreated: z.number().int().nonnegative(),
+  errors: z.array(z.string()).default([])
+});
+
+export type ProcessingResult = z.infer<typeof ProcessingResultSchema>;
+
+/**
  * Error types for content pipeline
  */
 export class ContentValidationError extends Error {

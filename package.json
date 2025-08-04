@@ -17,6 +17,7 @@
     "type-check": "tsc --noEmit",
     "crawl": "ts-node scripts/crawl-website.ts",
     "ingest": "ts-node scripts/ingest-content.ts",
+    "setup-index": "ts-node scripts/setup-search-index.ts",
     "validate-sources": "ts-node scripts/validate-sources.ts"
   },
   "keywords": [
@@ -32,7 +33,9 @@
     "@azure/identity": "^4.0.0",
     "@azure/search-documents": "^12.0.0",
     "@azure/storage-blob": "^12.17.0",
-    "@microsoft/teamsfx": "^2.0.0",
+    "@microsoft/agents-hosting": "^1.0.0",
+    "@microsoft/agents-hosting-express": "^1.0.0",
+    "openai": "^4.28.0",
     "applicationinsights": "^2.9.0",
     "axios": "^1.6.0",
     "cheerio": "^1.0.0-rc.12",

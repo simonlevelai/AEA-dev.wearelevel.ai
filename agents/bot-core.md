@@ -43,39 +43,46 @@ config/channel-settings.json         # Channel-specific config
 ```json
 {
   "dependencies": {
-    "@microsoft/agents-sdk": "^1.0.0",
-    "@microsoft/agents-core": "^1.0.0", 
+    "@microsoft/agents-hosting": "^1.0.0",
+    "@microsoft/agents-hosting-express": "^1.0.0",
+    "openai": "^4.28.0",
     "@azure/identity": "^4.0.0",
-    "@azure/openai": "^1.0.0",
     "express": "^4.18.0",
     "typescript": "^5.0.0"
   }
 }
 ```
 
-### 2. Basic Agent Structure
+### 2. Microsoft 365 Agents SDK Structure
 ```typescript
-import { Agent, AgentOptions } from '@microsoft/agents-sdk';
+import { AgentBuilder } from '@microsoft/agents-hosting';
+import { ExpressHosting } from '@microsoft/agents-hosting-express';
+import OpenAI from 'openai';
 
-export class AskEveBot extends Agent {
-  constructor(options: AgentOptions) {
-    super(options);
-    
-    // CRITICAL: Safety check happens FIRST
-    this.addMiddleware(new SafetyMiddleware());
-    this.addMiddleware(new LoggingMiddleware());
-    
-    this.setupHandlers();
-  }
-  
-  private setupHandlers(): void {
-    // Bot disclosure for new conversations
-    this.onConversationStart(this.handleConversationStart.bind(this));
-    
-    // Main message handler with safety integration
-    this.onMessage(this.handleUserMessage.bind(this));
-  }
-}
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+});
+
+// Build the agent with safety-first architecture
+const agent = new AgentBuilder()
+  .withOpenAI({
+    client: openai,
+    model: 'gpt-4o-mini',
+    temperature: 0.1  // Low temperature for health information
+  })
+  .withSafetyGuardian(safetyService)
+  .withContentRetrieval(contentService)
+  .withConversationMemory(true)
+  .build();
+
+// Host with Express
+const hosting = new ExpressHosting(agent, {
+  port: process.env.PORT || 3978,
+  healthEndpoint: '/health',
+  widgetEndpoint: '/widget'
+});
 ```
 
 ## 🛡️ Safety-First Implementation
