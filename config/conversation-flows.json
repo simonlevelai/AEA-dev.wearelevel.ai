@@ -1,0 +1,92 @@
+{
+  "flows": {
+    "greeting": {
+      "triggers": ["hello", "hi", "hey", "good morning", "good afternoon", "good evening"],
+      "condition": "isFirstMessage || isGreeting",
+      "response": "botDisclosure",
+      "followUp": ["ovarian_symptoms", "cervical_screening", "support_services", "nurse_contact"]
+    },
+    "ovarian_symptoms": {
+      "triggers": ["ovarian cancer", "ovarian symptoms", "bloating", "pelvic pain"],
+      "intent": "ovarian_cancer_info",
+      "searchTerms": ["ovarian cancer symptoms", "ovarian cancer signs"],
+      "fallback": "noContentFound"
+    },
+    "cervical_screening": {
+      "triggers": ["cervical screening", "smear test", "cervix", "cervical cancer"],
+      "intent": "cervical_screening_info", 
+      "searchTerms": ["cervical screening", "smear test", "cervical cancer prevention"],
+      "fallback": "noContentFound"
+    },
+    "support_services": {
+      "triggers": ["support", "help", "counselling", "emotional support"],
+      "intent": "support_services",
+      "searchTerms": ["support services", "counselling", "emotional support"],
+      "fallback": "directToNurse"
+    },
+    "nurse_contact": {
+      "triggers": ["speak to nurse", "talk to nurse", "nurse line", "professional help"],
+      "response": "nurseContact",
+      "immediate": true
+    },
+    "symptoms_concern": {
+      "triggers": ["worried about", "concerned about", "should I see", "is this normal"],
+      "response": "seekMedicalAdvice",
+      "escalate": true
+    }
+  },
+  "responses": {
+    "nurseContact": {
+      "text": "The Eve Appeal offers a free Ask Eve nurse line where you can speak confidentially with specialist gynaecology nurses.\n\n📞 **Call:** 0808 802 0019\n⏰ **Hours:** Monday-Friday, 9am-5pm\n📧 **Email:** nurses@eveappeal.org.uk\n\nThey can provide expert guidance and support for any concerns about gynaecological health.",
+      "attachments": [{
+        "contentType": "application/vnd.microsoft.card.hero",
+        "content": {
+          "title": "Ask Eve Nurse Line",
+          "subtitle": "Free confidential support from specialist nurses",
+          "buttons": [{
+            "type": "openUrl",
+            "title": "📞 Call Now",
+            "value": "tel:08088020019"
+          }, {
+            "type": "openUrl", 
+            "title": "📧 Email Nurses",
+            "value": "mailto:nurses@eveappeal.org.uk"
+          }]
+        }
+      }]
+    },
+    "seekMedicalAdvice": {
+      "text": "For any health concerns or symptoms, it's always best to speak with a healthcare professional who can provide personalized medical advice.\n\n**Recommended next steps:**\n• Book an appointment with your GP\n• Call NHS 111 for non-emergency advice\n• Contact The Eve Appeal nurse line\n\nIf symptoms are severe or you're very concerned, don't hesitate to seek urgent medical attention.",
+      "suggestedActions": ["Contact GP", "Call NHS 111", "Eve Appeal Nurses", "Emergency Services"]
+    },
+    "directToNurse": {
+      "text": "For personalized support and guidance, I'd recommend speaking with The Eve Appeal's specialist nurses who can provide expert advice tailored to your situation.",
+      "suggestedActions": ["Speak to a nurse", "Call nurse line", "Email nurses"]
+    }
+  },
+  "escalation": {
+    "medicalEmergency": {
+      "keywords": ["emergency", "urgent", "severe pain", "heavy bleeding", "can't breathe"],
+      "immediate": true,
+      "response": "medicalEmergency"
+    },
+    "selfHarm": {
+      "keywords": ["suicide", "kill myself", "want to die", "self harm", "hurt myself"],
+      "immediate": true,
+      "response": "selfHarm"
+    },
+    "inappropriate": {
+      "keywords": ["sexual content", "harassment"],
+      "immediate": true,
+      "response": "inappropriate"
+    }
+  },
+  "settings": {
+    "maxConversationLength": 50,
+    "responseTimeout": 5000,
+    "typingIndicatorDelay": 1000,
+    "enableSuggestedActions": true,
+    "enableSourceAttribution": true,
+    "enableConversationHistory": false
+  }
+}

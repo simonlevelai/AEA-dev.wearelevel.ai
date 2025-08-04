@@ -1,0 +1,143 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the resource group to monitor"
+      }
+    },
+    "alertEmail": {
+      "type": "string",
+      "metadata": {
+        "description": "Email address for cost alerts"
+      }
+    },
+    "environment": {
+      "type": "string",
+      "allowedValues": ["dev", "staging", "prod"],
+      "metadata": {
+        "description": "Environment name"
+      }
+    }
+  },
+  "variables": {
+    "actionGroupName": "[concat('askeve-', parameters('environment'), '-cost-alerts')]",
+    "budgetName": "[concat('askeve-', parameters('environment'), '-budget')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Insights/actionGroups",
+      "apiVersion": "2022-06-01",
+      "name": "[variables('actionGroupName')]",
+      "location": "Global",
+      "properties": {
+        "groupShortName": "CostAlerts",
+        "enabled": true,
+        "emailReceivers": [
+          {
+            "name": "InfrastructureTeam",
+            "emailAddress": "[parameters('alertEmail')]",
+            "useCommonAlertSchema": true
+          }
+        ],
+        "webhookReceivers": []
+      }
+    },
+    {
+      "type": "Microsoft.Consumption/budgets",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('budgetName')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+      ],
+      "properties": {
+        "displayName": "[concat('Ask Eve Assist - ', parameters('environment'), ' - Cost Control')]",
+        "amount": "[if(equals(parameters('environment'), 'prod'), 50, if(equals(parameters('environment'), 'staging'), 35, 25))]",
+        "timeGrain": "Monthly",
+        "timePeriod": {
+          "startDate": "[concat(utcNow('yyyy-MM'), '-01')]",
+          "endDate": "2030-12-31"
+        },
+        "filter": {
+          "and": [
+            {
+              "dimensions": {
+                "name": "ResourceGroupName",
+                "operator": "In",
+                "values": [
+                  "[parameters('resourceGroupName')]"
+                ]
+              }
+            }
+          ]
+        },
+        "notifications": {
+          "alert_40_pounds": {
+            "enabled": true,
+            "operator": "GreaterThan",
+            "threshold": "[if(equals(parameters('environment'), 'prod'), 80, if(equals(parameters('environment'), 'staging'), 100, 100))]",
+            "contactEmails": [
+              "[parameters('alertEmail')]"
+            ],
+            "contactGroups": [
+              "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+            ],
+            "thresholdType": "Actual",
+            "locale": "en-GB"
+          },
+          "alert_45_pounds": {
+            "enabled": true,
+            "operator": "GreaterThan", 
+            "threshold": "[if(equals(parameters('environment'), 'prod'), 90, if(equals(parameters('environment'), 'staging'), 100, 100))]",
+            "contactEmails": [
+              "[parameters('alertEmail')]"
+            ],
+            "contactGroups": [
+              "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+            ],
+            "thresholdType": "Actual",
+            "locale": "en-GB"
+          },
+          "alert_48_pounds": {
+            "enabled": true,
+            "operator": "GreaterThan",
+            "threshold": "[if(equals(parameters('environment'), 'prod'), 96, if(equals(parameters('environment'), 'staging'), 100, 100))]",
+            "contactEmails": [
+              "[parameters('alertEmail')]"
+            ],
+            "contactGroups": [
+              "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+            ],
+            "thresholdType": "Actual",
+            "locale": "en-GB"
+          },
+          "forecast_50_pounds": {
+            "enabled": true,
+            "operator": "GreaterThan",
+            "threshold": "[if(equals(parameters('environment'), 'prod'), 85, if(equals(parameters('environment'), 'staging'), 90, 95))]",
+            "contactEmails": [
+              "[parameters('alertEmail')]"
+            ],
+            "contactGroups": [
+              "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+            ],
+            "thresholdType": "Forecasted",
+            "locale": "en-GB"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "actionGroupId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+    },
+    "budgetName": {
+      "type": "string", 
+      "value": "[variables('budgetName')]"
+    }
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "response_times": {
+    "crisis_detection_ms": 500,
+    "crisis_response_ms": 2000,
+    "nurse_notification_ms": 60000,
+    "audit_logging_ms": 100
+  },
+  "escalation_levels": {
+    "crisis": {
+      "priority": 1,
+      "immediate_response": true,
+      "nurse_notification": true,
+      "supervisor_alert": true,
+      "log_level": "CRITICAL"
+    },
+    "high_concern": {
+      "priority": 2,
+      "immediate_response": true,
+      "nurse_notification": true,
+      "supervisor_alert": false,
+      "log_level": "HIGH"
+    },
+    "emotional_support": {
+      "priority": 3,
+      "immediate_response": false,
+      "nurse_notification": false,
+      "supervisor_alert": false,
+      "log_level": "MEDIUM"
+    },
+    "general": {
+      "priority": 4,
+      "immediate_response": false,
+      "nurse_notification": false,
+      "supervisor_alert": false,
+      "log_level": "LOW"
+    }
+  },
+  "mhra_compliance": {
+    "prohibited_patterns": [
+      "you should (take|stop|start|change)",
+      "medication|medicine|drug|dose",
+      "you (have|might have|probably have)",
+      "(don't|do not) worry",
+      "it's (just|only|probably)",
+      "definitely|certainly",
+      "diagnosis|diagnose",
+      "prescribe|prescription"
+    ],
+    "required_disclaimers": {
+      "general": "This is general health information only and should not replace professional medical advice.",
+      "medical": "Always consult your healthcare provider for medical concerns.",
+      "emergency": "If this is an emergency, call 999 immediately."
+    }
+  },
+  "crisis_responses": {
+    "mental_health": {
+      "immediate_resources": [
+        "Samaritans: 116 123 (free, 24/7)",
+        "Crisis Text Line: Text SHOUT to 85258",
+        "NHS 111: Call 111"
+      ],
+      "message": "I'm concerned about what you've shared. Your safety is the most important thing right now."
+    },
+    "medical_emergency": {
+      "immediate_resources": [
+        "Emergency Services: 999",
+        "NHS 111: Call 111"
+      ],
+      "message": "This sounds like it could be a medical emergency. Please seek immediate medical attention."
+    },
+    "domestic_violence": {
+      "immediate_resources": [
+        "National Domestic Abuse Helpline: 0808 2000 247",
+        "Emergency Services: 999",
+        "Women's Aid Live Chat: womensaid.org.uk"
+      ],
+      "message": "I'm concerned for your safety. You deserve to be safe and there are people who can help."
+    }
+  },
+  "nurse_team_notification": {
+    "webhook_url": "https://teams.microsoft.com/api/webhook/crisis-alerts",
+    "escalation_delay_minutes": 5,
+    "max_retries": 3,
+    "retry_delay_seconds": 30
+  },
+  "monitoring": {
+    "safety_dashboard_url": "https://dashboard.askeve.ai/safety",
+    "alert_thresholds": {
+      "missed_crisis_triggers": 0,
+      "response_time_threshold_ms": 2000,
+      "notification_failure_rate": 0.01
+    }
+  }
+}

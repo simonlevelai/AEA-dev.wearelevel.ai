@@ -1,0 +1,351 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0", 
+  "parameters": {
+    "dashboardName": {
+      "type": "string",
+      "defaultValue": "Ask Eve Assist - Operations Dashboard",
+      "metadata": {
+        "description": "Name of the Azure dashboard"
+      }
+    },
+    "environment": {
+      "type": "string",
+      "allowedValues": ["dev", "staging", "prod"],
+      "metadata": {
+        "description": "Environment name"
+      }
+    }
+  },
+  "variables": {
+    "appServiceName": "[concat('askeve-', parameters('environment'))]",
+    "appInsightsName": "[concat('askeve-', parameters('environment'), '-insights')]",
+    "cosmosDbName": "[concat('askeve-cosmos-', parameters('environment'))]",
+    "dashboardId": "[guid(resourceGroup().id, parameters('dashboardName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Portal/dashboards",
+      "apiVersion": "2020-09-01-preview",
+      "name": "[variables('dashboardId')]",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "hidden-title": "[parameters('dashboardName')]",
+        "environment": "[parameters('environment')]",
+        "service": "ask-eve-assist",
+        "criticality": "high"
+      },
+      "properties": {
+        "lenses": [
+          {
+            "order": 0,
+            "parts": [
+              {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "colSpan": 6,
+                  "rowSpan": 4
+                },
+                "metadata": {
+                  "inputs": [
+                    {
+                      "name": "resourceTypeMode",
+                      "isOptional": true
+                    },
+                    {
+                      "name": "ComponentId",
+                      "value": {
+                        "Name": "[variables('appInsightsName')]",
+                        "SubscriptionId": "[subscription().subscriptionId]",
+                        "ResourceGroup": "[resourceGroup().name]"
+                      },
+                      "isOptional": true
+                    },
+                    {
+                      "name": "Scope",
+                      "value": {
+                        "resourceIds": [
+                          "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
+                        ]
+                      },
+                      "isOptional": true
+                    },
+                    {
+                      "name": "PartId",
+                      "value": "1d7a6b2a-8c9e-4d5c-8b9a-2c3d4e5f6a7b",
+                      "isOptional": true
+                    },
+                    {
+                      "name": "Version",
+                      "value": "2.0",
+                      "isOptional": true
+                    },
+                    {
+                      "name": "TimeRange",
+                      "value": "P1D",
+                      "isOptional": true
+                    },
+                    {
+                      "name": "DashboardId",
+                      "isOptional": true
+                    },
+                    {
+                      "name": "DraftRequestParameters",
+                      "isOptional": true
+                    },
+                    {
+                      "name": "Query",
+                      "value": "requests\n| summarize RequestCount = count(), AvgDuration = avg(duration) by bin(timestamp, 5m)\n| render timechart",
+                      "isOptional": true
+                    },
+                    {
+                      "name": "ControlType",
+                      "value": "AnalyticsGrid",
+                      "isOptional": true
+                    },
+                    {
+                      "name": "SpecificChart",
+                      "value": "Line",
+                      "isOptional": true
+                    }
+                  ],
+                  "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart",
+                  "settings": {
+                    "content": {
+                      "Query": "requests\n| summarize RequestCount = count(), AvgDuration = avg(duration) by bin(timestamp, 5m)\n| render timechart\n",
+                      "ControlType": "FrameControlChart",
+                      "SpecificChart": "Line",
+                      "PartTitle": "Request Volume & Response Time",
+                      "Dimensions": {
+                        "xAxis": {
+                          "name": "timestamp",
+                          "type": "datetime"
+                        },
+                        "yAxis": [
+                          {
+                            "name": "RequestCount",
+                            "type": "long"
+                          },
+                          {
+                            "name": "AvgDuration", 
+                            "type": "real"
+                          }
+                        ],
+                        "splitBy": [],
+                        "aggregation": "Sum"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "position": {
+                  "x": 6,
+                  "y": 0,
+                  "colSpan": 6,
+                  "rowSpan": 4
+                },
+                "metadata": {
+                  "inputs": [
+                    {
+                      "name": "ComponentId",
+                      "value": {
+                        "Name": "[variables('appInsightsName')]",
+                        "SubscriptionId": "[subscription().subscriptionId]",
+                        "ResourceGroup": "[resourceGroup().name]"
+                      }
+                    },
+                    {
+                      "name": "Query",
+                      "value": "requests\n| summarize SuccessRate = (todouble(countif(success == true)) / count()) * 100 by bin(timestamp, 5m)\n| render timechart",
+                      "isOptional": true
+                    }
+                  ],
+                  "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart",
+                  "settings": {
+                    "content": {
+                      "PartTitle": "Success Rate (%)",
+                      "Query": "requests\n| summarize SuccessRate = (todouble(countif(success == true)) / count()) * 100 by bin(timestamp, 5m)\n| render timechart\n"
+                    }
+                  }
+                }
+              },
+              {
+                "position": {
+                  "x": 0,
+                  "y": 4,
+                  "colSpan": 4,
+                  "rowSpan": 3
+                },
+                "metadata": {
+                  "inputs": [
+                    {
+                      "name": "ComponentId",
+                      "value": {
+                        "Name": "[variables('appInsightsName')]",
+                        "SubscriptionId": "[subscription().subscriptionId]",
+                        "ResourceGroup": "[resourceGroup().name]"
+                      }
+                    },
+                    {
+                      "name": "Query",
+                      "value": "exceptions\n| where outerMessage contains 'Safety' or outerMessage contains 'Escalation' or outerMessage contains 'Emergency'\n| summarize Count = count() by bin(timestamp, 1h)\n| render barchart",
+                      "isOptional": true
+                    }
+                  ],
+                  "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart",
+                  "settings": {
+                    "content": {
+                      "PartTitle": "🚨 Safety System Alerts",
+                      "Query": "exceptions\n| where outerMessage contains 'Safety' or outerMessage contains 'Escalation' or outerMessage contains 'Emergency'\n| summarize Count = count() by bin(timestamp, 1h)\n| render barchart\n"
+                    }
+                  }
+                }
+              },
+              {
+                "position": {
+                  "x": 4,
+                  "y": 4,
+                  "colSpan": 4,
+                  "rowSpan": 3
+                },
+                "metadata": {
+                  "inputs": [
+                    {
+                      "name": "ComponentId",
+                      "value": {
+                        "Name": "[variables('appInsightsName')]",
+                        "SubscriptionId": "[subscription().subscriptionId]",
+                        "ResourceGroup": "[resourceGroup().name]"
+                      }
+                    },
+                    {
+                      "name": "Query",
+                      "value": "dependencies\n| where name contains 'openai'\n| summarize TokensUsed = sum(toint(customDimensions.tokens_used)), RequestCount = count() by bin(timestamp, 1h)\n| render timechart",
+                      "isOptional": true
+                    }
+                  ],
+                  "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart",
+                  "settings": {
+                    "content": {
+                      "PartTitle": "💰 OpenAI Usage (Cost Control)",
+                      "Query": "dependencies\n| where name contains 'openai'\n| summarize TokensUsed = sum(toint(customDimensions.tokens_used)), RequestCount = count() by bin(timestamp, 1h)\n| render timechart\n"
+                    }
+                  }
+                }
+              },
+              {
+                "position": {
+                  "x": 8,
+                  "y": 4,
+                  "colSpan": 4,
+                  "rowSpan": 3
+                },
+                "metadata": {
+                  "inputs": [
+                    {
+                      "name": "ComponentId",
+                      "value": {
+                        "Name": "[variables('appInsightsName')]",
+                        "SubscriptionId": "[subscription().subscriptionId]",
+                        "ResourceGroup": "[resourceGroup().name]"
+                      }
+                    },
+                    {
+                      "name": "Query",
+                      "value": "requests\n| where url contains '/health'\n| summarize HealthStatus = iff(success == true, 'Healthy', 'Unhealthy') by bin(timestamp, 5m)\n| render timechart",
+                      "isOptional": true
+                    }
+                  ],
+                  "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart",
+                  "settings": {
+                    "content": {
+                      "PartTitle": "🏥 Health Check Status",
+                      "Query": "requests\n| where url contains '/health'\n| summarize HealthChecks = count(), FailedChecks = countif(success == false) by bin(timestamp, 5m)\n| extend HealthRate = (todouble(HealthChecks - FailedChecks) / HealthChecks) * 100\n| render timechart\n"
+                    }
+                  }
+                }
+              },
+              {
+                "position": {
+                  "x": 0,
+                  "y": 7,
+                  "colSpan": 12,
+                  "rowSpan": 4
+                },
+                "metadata": {
+                  "inputs": [
+                    {
+                      "name": "ComponentId",
+                      "value": {
+                        "Name": "[variables('appInsightsName')]",
+                        "SubscriptionId": "[subscription().subscriptionId]",
+                        "ResourceGroup": "[resourceGroup().name]"
+                      }
+                    },
+                    {
+                      "name": "Query",
+                      "value": "union\n(requests | extend Type = 'Request', Status = iff(success, 'Success', 'Failed'), Details = strcat('URL: ', url, ' | Duration: ', duration, 'ms')),\n(exceptions | extend Type = 'Exception', Status = 'Error', Details = strcat('Message: ', outerMessage)),\n(dependencies | where name contains 'openai' | extend Type = 'OpenAI', Status = iff(success, 'Success', 'Failed'), Details = strcat('Target: ', target, ' | Duration: ', duration, 'ms'))\n| order by timestamp desc\n| take 50\n| project timestamp, Type, Status, Details",
+                      "isOptional": true
+                    }
+                  ],
+                  "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart",
+                  "settings": {
+                    "content": {
+                      "PartTitle": "📋 Recent Activity Log",
+                      "Query": "union\n(requests | extend Type = 'Request', Status = iff(success, 'Success', 'Failed'), Details = strcat('URL: ', url, ' | Duration: ', duration, 'ms')),\n(exceptions | extend Type = 'Exception', Status = 'Error', Details = strcat('Message: ', outerMessage)),\n(dependencies | where name contains 'openai' | extend Type = 'OpenAI', Status = iff(success, 'Success', 'Failed'), Details = strcat('Target: ', target, ' | Duration: ', duration, 'ms'))\n| order by timestamp desc\n| take 50\n| project timestamp, Type, Status, Details\n",
+                      "ControlType": "AnalyticsGrid"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "metadata": {
+          "model": {
+            "timeRange": {
+              "value": {
+                "relative": {
+                  "duration": 24,
+                  "timeUnit": 1
+                }
+              },
+              "type": "MsPortalFx.Composition.Configuration.ValueTypes.TimeRange"
+            },
+            "filterLocale": {
+              "value": "en-us"
+            },
+            "filters": {
+              "value": {
+                "MsPortalFx_TimeRange": {
+                  "model": {
+                    "format": "utc",
+                    "granularity": "auto",
+                    "relative": "24h"
+                  },
+                  "displayCache": {
+                    "name": "UTC Time",
+                    "value": "Past 24 hours"
+                  },
+                  "filteredPartIds": []
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "dashboardId": {
+      "type": "string",
+      "value": "[variables('dashboardId')]"
+    },
+    "dashboardUrl": {
+      "type": "string",
+      "value": "[concat('https://portal.azure.com/#@', tenant().tenantId, '/dashboard/arm', resourceGroup().id, '/providers/Microsoft.Portal/dashboards/', variables('dashboardId'))]"
+    }
+  }
+}

@@ -1,0 +1,75 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Production builds
+dist/
+dist-core/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+combined.log
+error.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# Azure deployment artifacts
+azure-pipelines.yml
+.azure/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Health service specific
+content/documents/*
+!content/documents/.gitkeep
+content/indexes/*
+!content/indexes/.gitkeep
+
+# Do not commit secrets
+secrets.json
+config/local-secrets.json
+
+# Testing
+test-results/
+playwright-report/
+test-output/
+
+# Package manager
+package-lock.json

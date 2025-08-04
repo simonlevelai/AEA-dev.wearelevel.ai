@@ -1,0 +1,60 @@
+{
+  "general": {
+    "maxChunkSize": 2000,
+    "minChunkSize": 100,
+    "overlapSize": 200,
+    "separators": ["\n\n", "\n", ". ", "! ", "? "]
+  },
+  "preserveSections": {
+    "enabled": true,
+    "criticalSections": [
+      "symptoms to watch for",
+      "when to see your GP",
+      "when to see your doctor",
+      "emergency symptoms",
+      "red flag symptoms",
+      "treatment options",
+      "diagnostic tests",
+      "screening guidelines",
+      "risk factors",
+      "prevention advice"
+    ],
+    "neverSplit": true
+  },
+  "semanticChunking": {
+    "enabled": true,
+    "strategies": [
+      "heading_based",
+      "sentence_boundary",
+      "topic_coherence"
+    ],
+    "headingHierarchy": ["h1", "h2", "h3", "h4", "h5", "h6"],
+    "maintainContext": true
+  },
+  "medicalContent": {
+    "preserveSymptomLists": true,
+    "preserveMedicalTerms": true,
+    "maintainCausality": true,
+    "contextualLinks": [
+      "this means",
+      "this could indicate",
+      "if you experience",
+      "symptoms include",
+      "signs to look for"
+    ]
+  },
+  "qualityChecks": {
+    "minWordsPerChunk": 20,
+    "maxWordsPerChunk": 500,
+    "requireSourceUrl": true,
+    "validateMedicalAccuracy": true,
+    "checkReadability": true
+  },
+  "metadata": {
+    "includeHeadings": true,
+    "includePageNumbers": true,
+    "includeLastReviewed": true,
+    "includeContentType": true,
+    "includeCancerType": true
+  }
+}

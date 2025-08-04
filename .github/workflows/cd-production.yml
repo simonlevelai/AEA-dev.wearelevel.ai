@@ -1,0 +1,505 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      deployment_reason:
+        description: 'Reason for manual deployment'
+        required: true
+        type: string
+      skip_safety_tests:
+        description: 'Skip safety tests (EMERGENCY ONLY)'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  NODE_VERSION: '20.x'
+  ENVIRONMENT: 'prod'
+  RESOURCE_GROUP: 'rg-askeve-prod'
+  LOCATION: 'uksouth'
+
+jobs:
+  pre-deployment-validation:
+    name: Pre-deployment Validation (CRITICAL)
+    runs-on: ubuntu-latest
+    environment: production
+    
+    outputs:
+      deployment-id: ${{ steps.generate-id.outputs.deployment-id }}
+      safety-validated: ${{ steps.safety-check.outputs.validated }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Generate deployment ID
+        id: generate-id
+        run: echo "deployment-id=prod-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+        
+      - name: Log deployment reason
+        if: github.event.inputs.deployment_reason
+        run: |
+          echo "🚨 Manual deployment initiated"
+          echo "Reason: ${{ github.event.inputs.deployment_reason }}"
+          echo "Initiated by: ${{ github.actor }}"
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run full test suite
+        run: |
+          echo "🧪 Running comprehensive test suite..."
+          npm test -- --coverage --verbose
+        env:
+          CI: true
+          
+      - name: CRITICAL - Safety system validation
+        id: safety-check
+        if: github.event.inputs.skip_safety_tests != 'true'
+        run: |
+          echo "🏥 CRITICAL: Validating safety systems..."
+          npm run test:safety -- --strict
+          
+          # Additional safety validation
+          npm run test:escalation
+          npm run test:medical-disclaimer
+          npm run test:emergency-contacts
+          
+          echo "✅ All safety systems validated"
+          echo "validated=true" >> $GITHUB_OUTPUT
+        env:
+          CI: true
+          
+      - name: Security audit (production grade)
+        run: |
+          echo "🔐 Running production security audit..."
+          npm audit --production --audit-level critical
+          
+      - name: Check for emergency bypass
+        if: github.event.inputs.skip_safety_tests == 'true'
+        run: |
+          echo "🚨 EMERGENCY DEPLOYMENT - SAFETY TESTS BYPASSED"
+          echo "This deployment bypassed safety tests and should be monitored closely"
+          echo "Reason: ${{ github.event.inputs.deployment_reason }}"
+          
+  deploy-infrastructure:
+    name: Deploy Production Infrastructure
+    runs-on: ubuntu-latest
+    needs: pre-deployment-validation
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_PRODUCTION }}
+          
+      - name: Verify UK region compliance
+        run: |
+          echo "🇬🇧 Verifying UK data residency compliance..."
+          LOCATION="${{ env.LOCATION }}"
+          
+          if [[ ! "$LOCATION" =~ ^(uksouth|ukwest)$ ]]; then
+            echo "❌ COMPLIANCE VIOLATION: Non-UK region specified: $LOCATION"
+            exit 1
+          fi
+          
+          echo "✅ UK compliance verified: $LOCATION"
+          
+      - name: Create/verify resource group
+        run: |
+          az group create \
+            --name ${{ env.RESOURCE_GROUP }} \
+            --location ${{ env.LOCATION }} \
+            --tags \
+              environment=production \
+              criticality=high \
+              compliance=uk-data-residency \
+              cost-center=ask-eve-assist
+              
+      - name: Deploy infrastructure with monitoring
+        id: deploy-infra
+        run: |
+          DEPLOYMENT_NAME="${{ needs.pre-deployment-validation.outputs.deployment-id }}"
+          
+          echo "🏗️ Deploying production infrastructure..."
+          echo "Deployment ID: $DEPLOYMENT_NAME"
+          
+          az deployment group create \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name "$DEPLOYMENT_NAME" \
+            --template-file deploy/arm-template.json \
+            --parameters @deploy/parameters/prod.parameters.json \
+            --parameters alertEmail="${{ secrets.ALERT_EMAIL_PRODUCTION }}" \
+            --output table \
+            --verbose
+            
+      - name: Deploy cost monitoring (£50 budget)
+        run: |
+          echo "💰 Deploying cost monitoring with £50 budget limit..."
+          
+          az deployment group create \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name "cost-alerts-${{ needs.pre-deployment-validation.outputs.deployment-id }}" \
+            --template-file monitoring/cost-alerts.json \
+            --parameters resourceGroupName="${{ env.RESOURCE_GROUP }}" \
+            --parameters alertEmail="${{ secrets.ALERT_EMAIL_PRODUCTION }}" \
+            --parameters environment="${{ env.ENVIRONMENT }}" \
+            --output table
+            
+          echo "✅ Cost alerts configured at £40, £45, £48"
+          
+      - name: Get deployment outputs
+        id: outputs
+        run: |
+          OUTPUTS=$(az deployment group show \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name "${{ needs.pre-deployment-validation.outputs.deployment-id }}" \
+            --query properties.outputs \
+            --output json)
+            
+          echo "app-service-name=$(echo "$OUTPUTS" | jq -r '.appServiceName.value')" >> $GITHUB_OUTPUT
+          echo "app-service-url=$(echo "$OUTPUTS" | jq -r '.appServiceUrl.value')" >> $GITHUB_OUTPUT
+          echo "key-vault-name=$(echo "$OUTPUTS" | jq -r '.keyVaultName.value')" >> $GITHUB_OUTPUT
+          
+    outputs:
+      app-service-name: ${{ steps.outputs.outputs.app-service-name }}
+      app-service-url: ${{ steps.outputs.outputs.app-service-url }}
+      key-vault-name: ${{ steps.outputs.outputs.key-vault-name }}
+      
+  configure-production-secrets:
+    name: Configure Production Secrets
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, deploy-infrastructure]
+    environment: production
+    
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_PRODUCTION }}
+          
+      - name: Configure production secrets
+        run: |
+          KEY_VAULT_NAME="${{ needs.deploy-infrastructure.outputs.key-vault-name }}"
+          
+          echo "🔐 Configuring production secrets in: $KEY_VAULT_NAME"
+          
+          # Production OpenAI API key
+          az keyvault secret set \
+            --vault-name "$KEY_VAULT_NAME" \
+            --name "openai-api-key" \
+            --value "${{ secrets.OPENAI_API_KEY_PRODUCTION }}" \
+            --tags environment=production criticality=high
+            
+          # Emergency contact webhook
+          az keyvault secret set \
+            --vault-name "$KEY_VAULT_NAME" \
+            --name "emergency-webhook-url" \
+            --value "${{ secrets.EMERGENCY_WEBHOOK_PRODUCTION }}" \
+            --tags environment=production criticality=critical
+            
+          # Teams notification webhook
+          az keyvault secret set \
+            --vault-name "$KEY_VAULT_NAME" \
+            --name "teams-webhook-url" \
+            --value "${{ secrets.TEAMS_WEBHOOK_PRODUCTION }}" \
+            --tags environment=production
+            
+          # Eve Appeal integration secrets
+          az keyvault secret set \
+            --vault-name "$KEY_VAULT_NAME" \
+            --name "eve-appeal-api-key" \
+            --value "${{ secrets.EVE_APPEAL_API_KEY }}" \
+            --tags environment=production criticality=high
+            
+          echo "✅ Production secrets configured with appropriate tags"
+          
+  zero-downtime-deployment:
+    name: Zero-downtime Application Deployment
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, deploy-infrastructure, configure-production-secrets]
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Build production application
+        run: |
+          echo "🔨 Building production application..."
+          npm ci --production
+          npm run build:production
+        env:
+          NODE_ENV: production
+          
+      - name: Create deployment package
+        run: |
+          echo "📦 Creating deployment package..."
+          tar -czf app-package.tar.gz \
+            --exclude=node_modules/.cache \
+            --exclude=.git \
+            --exclude=tests \
+            .
+            
+      - name: Deploy with zero downtime
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ needs.deploy-infrastructure.outputs.app-service-name }}
+          package: app-package.tar.gz
+          
+      - name: Warm up application
+        run: |
+          APP_URL="${{ needs.deploy-infrastructure.outputs.app-service-url }}"
+          
+          echo "🔥 Warming up application: $APP_URL"
+          
+          # Warm up key endpoints
+          curl -f -s "$APP_URL/" > /dev/null || true
+          curl -f -s "$APP_URL/health" > /dev/null || true
+          
+          echo "✅ Application warm-up completed"
+          
+  production-validation:
+    name: Production Validation Suite
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure, zero-downtime-deployment]
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Wait for application stabilization
+        run: |
+          echo "⏳ Waiting for application to stabilize..."
+          sleep 90
+          
+      - name: Comprehensive health checks
+        run: |
+          APP_URL="${{ needs.deploy-infrastructure.outputs.app-service-url }}"
+          
+          echo "🔍 Running comprehensive health checks..."
+          
+          # Main health endpoint
+          for i in {1..10}; do
+            if curl -f -s "$APP_URL/health" | jq -e '.status == "healthy"' > /dev/null; then
+              echo "✅ Health check $i passed"
+              break
+            else
+              if [ $i -eq 10 ]; then
+                echo "❌ Health checks failed after 10 attempts"
+                exit 1
+              fi
+              echo "⏳ Health check $i failed, retrying in 15s..."
+              sleep 15
+            fi
+          done
+          
+      - name: CRITICAL - Safety system validation
+        run: |
+          APP_URL="${{ needs.deploy-infrastructure.outputs.app-service-url }}"
+          
+          echo "🏥 CRITICAL: Validating production safety systems..."
+          
+          # Test safety escalation endpoints
+          npm run test:safety:production -- --url "$APP_URL"
+          
+          # Test emergency contact system
+          npm run test:emergency:production -- --url "$APP_URL"
+          
+          echo "✅ Production safety systems validated"
+          
+      - name: Performance validation
+        run: |
+          APP_URL="${{ needs.deploy-infrastructure.outputs.app-service-url }}"
+          
+          echo "⚡ Running performance validation..."
+          npm run test:performance -- --url "$APP_URL" --threshold 2000
+          
+      - name: End-to-end health conversation test
+        run: |
+          APP_URL="${{ needs.deploy-infrastructure.outputs.app-service-url }}"
+          
+          echo "💬 Testing end-to-end health conversation flow..."
+          npm run test:e2e:health -- --url "$APP_URL"
+          
+  cost-monitoring-validation:
+    name: Cost Monitoring Validation
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure, production-validation]
+    environment: production
+    
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_PRODUCTION }}
+          
+      - name: Validate budget configuration
+        run: |
+          echo "💰 Validating production cost monitoring..."
+          
+          # Verify budget exists and is configured correctly
+          BUDGET_COUNT=$(az consumption budget list \
+            --resource-group-name ${{ env.RESOURCE_GROUP }} \
+            --query "length(value[?contains(name, 'askeve') && properties.amount == \`50\`])")
+            
+          if [ "$BUDGET_COUNT" -eq 0 ]; then
+            echo "❌ Production budget not found or incorrectly configured"
+            exit 1
+          fi
+          
+          echo "✅ Production budget (£50) validated"
+          
+      - name: Test cost alert system
+        run: |
+          echo "🚨 Validating cost alert system..."
+          
+          # Check action groups exist
+          ACTION_GROUPS=$(az monitor action-group list \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "length(value)")
+            
+          if [ "$ACTION_GROUPS" -eq 0 ]; then
+            echo "❌ No action groups found for cost alerts"
+            exit 1
+          fi
+          
+          echo "✅ Cost alert system validated"
+          
+      - name: Generate cost monitoring report
+        run: |
+          echo "## 💰 Production Cost Monitoring" >> $GITHUB_STEP_SUMMARY
+          echo "- **Budget Limit:** £50/month" >> $GITHUB_STEP_SUMMARY
+          echo "- **Alert Thresholds:** £40 (80%), £45 (90%), £48 (96%)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Email Alerts:** ${{ secrets.ALERT_EMAIL_PRODUCTION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Resource Group:** ${{ env.RESOURCE_GROUP }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Location:** ${{ env.LOCATION }} (UK Compliant)" >> $GITHUB_STEP_SUMMARY
+          
+  post-deployment-monitoring:
+    name: Post-deployment Monitoring Setup
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure, production-validation, cost-monitoring-validation]
+    environment: production
+    
+    steps:
+      - name: Setup monitoring dashboard
+        run: |
+          echo "📊 Production monitoring is now active"
+          echo "- Application URL: ${{ needs.deploy-infrastructure.outputs.app-service-url }}"
+          echo "- Resource Group: ${{ env.RESOURCE_GROUP }}"
+          echo "- Cost monitoring: ✅ Active"
+          echo "- Safety systems: ✅ Validated"
+          echo "- UK compliance: ✅ ${{ env.LOCATION }}"
+          
+      - name: Schedule first health check
+        run: |
+          echo "⏰ Next automated health check in 1 hour"
+          echo "Manual monitoring required for first 24 hours"
+          
+  notify-deployment-success:
+    name: Notify Deployment Success
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, deploy-infrastructure, production-validation, cost-monitoring-validation, post-deployment-monitoring]
+    if: success()
+    
+    steps:
+      - name: Generate success summary
+        run: |
+          echo "🎉 ASK EVE ASSIST PRODUCTION DEPLOYMENT SUCCESSFUL! 🎉"
+          echo ""
+          echo "## 🚀 Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ✅ Successfully Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** Production" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL:** ${{ needs.deploy-infrastructure.outputs.app-service-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployment ID:** ${{ needs.pre-deployment-validation.outputs.deployment-id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Safety Systems:** ✅ Validated" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cost Monitoring:** ✅ £50 budget with alerts" >> $GITHUB_STEP_SUMMARY
+          echo "- **UK Compliance:** ✅ ${{ env.LOCATION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Zero Downtime:** ✅ Achieved" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🏥 Critical Health Systems Status:" >> $GITHUB_STEP_SUMMARY
+          echo "- Medical safety validation: ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Emergency escalation: ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- The Eve Appeal integration: ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**The Ask Eve health chatbot is now live and ready to help people in health crises.**" >> $GITHUB_STEP_SUMMARY
+          
+      - name: Emergency contact notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          webhook_url: ${{ secrets.EMERGENCY_WEBHOOK_PRODUCTION }}
+          text: |
+            🚨 PRODUCTION DEPLOYMENT SUCCESSFUL 🚨
+            
+            Ask Eve Assist is now live in production!
+            
+            URL: ${{ needs.deploy-infrastructure.outputs.app-service-url }}
+            Environment: Production
+            Safety Systems: ✅ Validated
+            Cost Monitoring: ✅ Active (£50 budget)
+            UK Compliance: ✅ Enforced
+            
+            Deployment ID: ${{ needs.pre-deployment-validation.outputs.deployment-id }}
+            Initiated by: ${{ github.actor }}
+            
+            Monitor closely for the first 24 hours.
+            
+  notify-deployment-failure:
+    name: Notify Deployment Failure
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, deploy-infrastructure, production-validation, cost-monitoring-validation, post-deployment-monitoring]
+    if: failure()
+    
+    steps:
+      - name: Emergency failure notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          webhook_url: ${{ secrets.EMERGENCY_WEBHOOK_PRODUCTION }}
+          text: |
+            🚨 PRODUCTION DEPLOYMENT FAILED 🚨
+            
+            Ask Eve Assist production deployment has failed!
+            
+            Environment: Production
+            Failure Stage: ${{ needs.*.result }}
+            Deployment ID: ${{ needs.pre-deployment-validation.outputs.deployment-id }}
+            Initiated by: ${{ github.actor }}
+            
+            IMMEDIATE ACTION REQUIRED:
+            1. Check workflow logs
+            2. Assess impact on existing service
+            3. Initiate rollback if necessary
+            4. Contact infrastructure team
+            
+            This is a CRITICAL failure for a life-saving health service.

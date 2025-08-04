@@ -1,0 +1,354 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the resource group containing the resources to monitor"
+      }
+    },
+    "environment": {
+      "type": "string",
+      "allowedValues": ["dev", "staging", "prod"],
+      "metadata": {
+        "description": "Environment name"
+      }
+    },
+    "alertEmail": {
+      "type": "string",
+      "metadata": {
+        "description": "Email address for alerts"
+      }
+    },
+    "emergencyWebhook": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Emergency webhook URL for critical alerts"
+      }
+    }
+  },
+  "variables": {
+    "actionGroupName": "[concat('askeve-', parameters('environment'), '-monitoring')]",
+    "appServiceName": "[concat('askeve-', parameters('environment'))]",
+    "appInsightsName": "[concat('askeve-', parameters('environment'), '-insights')]",
+    "cosmosDbName": "[concat('askeve-cosmos-', parameters('environment'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Insights/actionGroups",
+      "apiVersion": "2022-06-01",
+      "name": "[variables('actionGroupName')]",
+      "location": "Global",
+      "properties": {
+        "groupShortName": "AskEveAlert",
+        "enabled": true,
+        "emailReceivers": [
+          {
+            "name": "InfrastructureTeam",
+            "emailAddress": "[parameters('alertEmail')]",
+            "useCommonAlertSchema": true
+          }
+        ],
+        "webhookReceivers": "[if(empty(parameters('emergencyWebhook')), createArray(), createArray(createObject('name', 'EmergencyWebhook', 'serviceUri', parameters('emergencyWebhook'), 'useCommonAlertSchema', true)))]",        
+        "smsReceivers": "[if(equals(parameters('environment'), 'prod'), createArray(createObject('name', 'EmergencyContact', 'countryCode', '44', 'phoneNumber', '07700000000')), createArray())]"
+      }
+    },
+    {
+      "type": "Microsoft.Insights/metricAlerts",
+      "apiVersion": "2018-03-01",
+      "name": "[concat('askeve-', parameters('environment'), '-high-error-rate')]",
+      "location": "global",
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+      ],
+      "properties": {
+        "description": "Alert when error rate exceeds 1% - critical for health service",
+        "severity": 1,
+        "enabled": true,
+        "scopes": [
+          "[resourceId('Microsoft.Web/sites', variables('appServiceName'))]"
+        ],
+        "evaluationFrequency": "PT1M",
+        "windowSize": "PT5M",
+        "criteria": {
+          "odata.type": "Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria",
+          "allOf": [
+            {
+              "name": "ErrorRate",
+              "metricName": "Http5xx",
+              "dimensions": [],
+              "operator": "GreaterThan",
+              "threshold": 1,
+              "timeAggregation": "Count"
+            }
+          ]
+        },
+        "actions": [
+          {
+            "actionGroupId": "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Insights/metricAlerts",
+      "apiVersion": "2018-03-01", 
+      "name": "[concat('askeve-', parameters('environment'), '-slow-response')]",
+      "location": "global",
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+      ],
+      "properties": {
+        "description": "Alert when response time exceeds 3 seconds",
+        "severity": 2,
+        "enabled": true,
+        "scopes": [
+          "[resourceId('Microsoft.Web/sites', variables('appServiceName'))]"
+        ],
+        "evaluationFrequency": "PT5M",
+        "windowSize": "PT10M",
+        "criteria": {
+          "odata.type": "Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria",
+          "allOf": [
+            {
+              "name": "ResponseTime", 
+              "metricName": "AverageResponseTime",
+              "dimensions": [],
+              "operator": "GreaterThan",
+              "threshold": 3000,
+              "timeAggregation": "Average"
+            }
+          ]
+        },
+        "actions": [
+          {
+            "actionGroupId": "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Insights/metricAlerts",
+      "apiVersion": "2018-03-01",
+      "name": "[concat('askeve-', parameters('environment'), '-cpu-high')]",
+      "location": "global", 
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+      ],
+      "properties": {
+        "description": "Alert when CPU usage exceeds 80%",
+        "severity": 2,
+        "enabled": true,
+        "scopes": [
+          "[resourceId('Microsoft.Web/sites', variables('appServiceName'))]"
+        ],
+        "evaluationFrequency": "PT5M",
+        "windowSize": "PT10M", 
+        "criteria": {
+          "odata.type": "Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria",
+          "allOf": [
+            {
+              "name": "CpuPercentage",
+              "metricName": "CpuPercentage", 
+              "dimensions": [],
+              "operator": "GreaterThan",
+              "threshold": 80,
+              "timeAggregation": "Average"
+            }
+          ]
+        },
+        "actions": [
+          {
+            "actionGroupId": "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Insights/metricAlerts",
+      "apiVersion": "2018-03-01",
+      "name": "[concat('askeve-', parameters('environment'), '-memory-high')]", 
+      "location": "global",
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+      ],
+      "properties": {
+        "description": "Alert when memory usage exceeds 85%",
+        "severity": 2,
+        "enabled": true,
+        "scopes": [
+          "[resourceId('Microsoft.Web/sites', variables('appServiceName'))]"
+        ],
+        "evaluationFrequency": "PT5M",
+        "windowSize": "PT10M",
+        "criteria": {
+          "odata.type": "Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria", 
+          "allOf": [
+            {
+              "name": "MemoryPercentage",
+              "metricName": "MemoryPercentage",
+              "dimensions": [],
+              "operator": "GreaterThan", 
+              "threshold": 85,
+              "timeAggregation": "Average"
+            }
+          ]
+        },
+        "actions": [
+          {
+            "actionGroupId": "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Insights/scheduledQueryRules",
+      "apiVersion": "2022-06-15",
+      "name": "[concat('askeve-', parameters('environment'), '-safety-system-failure')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+      ],
+      "properties": {
+        "displayName": "Ask Eve - Safety System Failure (CRITICAL)",
+        "description": "CRITICAL: Alert when safety systems report failures or escalation events",
+        "severity": 0,
+        "enabled": true,
+        "evaluationFrequency": "PT1M",
+        "windowSize": "PT1M",
+        "scopes": [
+          "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
+        ],
+        "criteria": {
+          "allOf": [
+            {
+              "query": "exceptions | where outerMessage contains 'Safety' or outerMessage contains 'Escalation' or outerMessage contains 'Emergency' | summarize count() by bin(timestamp, 1m)",
+              "timeAggregation": "Count",
+              "dimensions": [],
+              "operator": "GreaterThan",
+              "threshold": 0,
+              "failingPeriods": {
+                "numberOfEvaluationPeriods": 1,
+                "minFailingPeriodsToAlert": 1
+              }
+            }
+          ]
+        },
+        "actions": {
+          "actionGroups": [
+            "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+          ],
+          "customProperties": {
+            "alertType": "safety-critical",
+            "escalationLevel": "immediate"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Insights/scheduledQueryRules", 
+      "apiVersion": "2022-06-15",
+      "name": "[concat('askeve-', parameters('environment'), '-openai-usage-spike')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+      ],
+      "properties": {
+        "displayName": "Ask Eve - OpenAI Usage Spike",
+        "description": "Alert when OpenAI usage spikes beyond normal patterns (cost control)",
+        "severity": 2, 
+        "enabled": true,
+        "evaluationFrequency": "PT5M",
+        "windowSize": "PT1H",
+        "scopes": [
+          "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
+        ],
+        "criteria": {
+          "allOf": [
+            {
+              "query": "dependencies | where name contains 'openai' | summarize count() by bin(timestamp, 1h) | where count_ > 500",
+              "timeAggregation": "Count",
+              "dimensions": [],
+              "operator": "GreaterThan", 
+              "threshold": 0,
+              "failingPeriods": {
+                "numberOfEvaluationPeriods": 1,
+                "minFailingPeriodsToAlert": 1
+              }
+            }
+          ]
+        },
+        "actions": {
+          "actionGroups": [
+            "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+          ],
+          "customProperties": {
+            "alertType": "cost-control",
+            "action": "review-usage-patterns" 
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Insights/scheduledQueryRules",
+      "apiVersion": "2022-06-15", 
+      "name": "[concat('askeve-', parameters('environment'), '-health-check-failure')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+      ],
+      "properties": {
+        "displayName": "Ask Eve - Health Check Failure",
+        "description": "Alert when health endpoint fails or returns unhealthy status", 
+        "severity": 1,
+        "enabled": true,
+        "evaluationFrequency": "PT1M",
+        "windowSize": "PT5M",
+        "scopes": [
+          "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
+        ],
+        "criteria": {
+          "allOf": [
+            {
+              "query": "requests | where url contains '/health' and (success == false or resultCode >= 500) | summarize count() by bin(timestamp, 5m)",
+              "timeAggregation": "Count",
+              "dimensions": [],
+              "operator": "GreaterThan",
+              "threshold": 2, 
+              "failingPeriods": {
+                "numberOfEvaluationPeriods": 1,
+                "minFailingPeriodsToAlert": 1
+              }
+            }
+          ]
+        },
+        "actions": {
+          "actionGroups": [
+            "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+          ],
+          "customProperties": {
+            "alertType": "availability",
+            "endpoint": "health-check"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "actionGroupId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+    },
+    "alertRules": {
+      "type": "array",
+      "value": [
+        "[resourceId('Microsoft.Insights/metricAlerts', concat('askeve-', parameters('environment'), '-high-error-rate'))]",
+        "[resourceId('Microsoft.Insights/metricAlerts', concat('askeve-', parameters('environment'), '-slow-response'))]",
+        "[resourceId('Microsoft.Insights/scheduledQueryRules', concat('askeve-', parameters('environment'), '-safety-system-failure'))]",
+        "[resourceId('Microsoft.Insights/scheduledQueryRules', concat('askeve-', parameters('environment'), '-health-check-failure'))]"
+      ]
+    }
+  }
+}

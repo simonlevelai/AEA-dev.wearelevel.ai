@@ -1,0 +1,48 @@
+{
+  "baseUrl": "https://eveappeal.org.uk",
+  "rateLimit": {
+    "maxConcurrent": 2,
+    "delayBetweenRequests": 1000,
+    "respectRobotsTxt": true,
+    "userAgent": "Ask Eve Assist Content Pipeline Bot (+https://github.com/wearelevel/ask-eve-assist)"
+  },
+  "includePatterns": [
+    "/information/*",
+    "/symptoms/*",
+    "/types-of-cancer/*",
+    "/support/*",
+    "/awareness/*",
+    "/about-gynaecological-cancer/*",
+    "/what-we-do/*"
+  ],
+  "excludePatterns": [
+    "/shop/*",
+    "/donate/*",
+    "/admin/*",
+    "/events/*",
+    "/wp-admin/*",
+    "/wp-content/uploads/*",
+    "/news/*",
+    "/jobs/*",
+    "/contact/*"
+  ],
+  "contentSelectors": {
+    "title": "h1, .entry-title, .page-title",
+    "content": ".entry-content, .page-content, main, article",
+    "exclude": ".sidebar, .footer, .navigation, .social-share, .comments"
+  },
+  "validation": {
+    "minContentLength": 100,
+    "maxContentLength": 50000,
+    "requiredSections": [
+      "symptoms",
+      "information",
+      "support"
+    ]
+  },
+  "schedule": {
+    "dailyCrawlTime": "02:00",
+    "timezone": "Europe/London",
+    "enabled": true
+  }
+}

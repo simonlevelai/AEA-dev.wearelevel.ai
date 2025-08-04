@@ -1,0 +1,293 @@
+{
+  "autoScalingRules": {
+    "description": "Auto-scaling configuration for Ask Eve Assist - optimized for cost control under £50/month",
+    "environment": {
+      "dev": {
+        "enabled": false,
+        "reason": "Development environment uses minimal fixed resources"
+      },
+      "staging": {
+        "enabled": false, 
+        "reason": "Staging uses fixed B1 tier for predictable testing"
+      },
+      "prod": {
+        "enabled": true,
+        "reason": "Production may need limited scaling during high usage periods"
+      }
+    },
+    "appServicePlan": {
+      "baseTier": "B1",
+      "maxInstances": 2,
+      "minInstances": 1,
+      "scaleUpRules": [
+        {
+          "metricName": "CpuPercentage",
+          "operator": "GreaterThan", 
+          "threshold": 85,
+          "duration": "PT10M",
+          "cooldown": "PT15M",
+          "action": "Increase",
+          "instanceCount": 1,
+          "description": "Scale up when CPU > 85% for 10 minutes"
+        },
+        {
+          "metricName": "MemoryPercentage",
+          "operator": "GreaterThan",
+          "threshold": 90,
+          "duration": "PT10M", 
+          "cooldown": "PT15M",
+          "action": "Increase",
+          "instanceCount": 1,
+          "description": "Scale up when memory > 90% for 10 minutes"
+        },
+        {
+          "metricName": "HttpQueueLength",
+          "operator": "GreaterThan",
+          "threshold": 50,
+          "duration": "PT5M",
+          "cooldown": "PT10M",
+          "action": "Increase", 
+          "instanceCount": 1,
+          "description": "Scale up when request queue > 50 for 5 minutes"
+        }
+      ],
+      "scaleDownRules": [
+        {
+          "metricName": "CpuPercentage",
+          "operator": "LessThan",
+          "threshold": 30,
+          "duration": "PT20M",
+          "cooldown": "PT30M", 
+          "action": "Decrease",
+          "instanceCount": 1,
+          "description": "Scale down when CPU < 30% for 20 minutes"
+        },
+        {
+          "metricName": "MemoryPercentage",
+          "operator": "LessThan",
+          "threshold": 40,
+          "duration": "PT20M",
+          "cooldown": "PT30M",
+          "action": "Decrease",
+          "instanceCount": 1,
+          "description": "Scale down when memory < 40% for 20 minutes"
+        }
+      ],
+      "costSafeguards": {
+        "maxMonthlyCost": 20,
+        "description": "App Service scaling limited to stay within £20/month (40% of total budget)",
+        "emergencyShutdown": {
+          "enabled": true,
+          "threshold": 48,
+          "description": "Emergency scale down to single instance if monthly costs approach £48"
+        }
+      }
+    },
+    "cosmosDB": {
+      "mode": "Serverless",
+      "description": "Serverless mode provides automatic scaling with pay-per-request pricing",
+      "throughputLimits": {
+        "maxRU": 5000,
+        "description": "Maximum RU/s to prevent cost spikes"
+      },
+      "costControls": {
+        "dailyLimit": 100,
+        "description": "Daily RU consumption limit to control costs",  
+        "alertThreshold": 80,
+        "description": "Alert when approaching daily limit"
+      }
+    },
+    "applicationInsights": {
+      "samplingRate": {
+        "normal": 10,
+        "highTraffic": 5,  
+        "emergency": 1,
+        "description": "Reduce sampling rate during high traffic to control ingestion costs"
+      },
+      "adaptiveSampling": {
+        "enabled": true,
+        "maxTelemetryItemsPerSecond": 5,
+        "description": "Automatically adjust sampling based on telemetry volume"
+      }
+    },
+    "openAIUsage": {
+      "rateLimiting": {
+        "requestsPerMinute": {
+          "normal": 100,
+          "costAlert40": 80,
+          "costAlert45": 60,
+          "costAlert48": 30,
+          "description": "Reduce OpenAI request rate as costs approach limits"
+        },
+        "tokensPerRequest": {
+          "max": 1000,
+          "typical": 200,
+          "description": "Limit token usage per request to control costs"
+        }
+      },
+      "costControls": {
+        "dailyLimit": 25,
+        "description": "Daily OpenAI spending limit (£25 = 50% of monthly budget)",
+        "emergencyShutdown": {
+          "enabled": true,
+          "threshold": 47,
+          "description": "Disable OpenAI calls if monthly costs reach £47"
+        }
+      }
+    }
+  },
+  "armTemplate": {
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "appServicePlanName": {
+        "type": "string",
+        "metadata": {
+          "description": "Name of the App Service Plan to configure auto-scaling"
+        }
+      },
+      "environment": {
+        "type": "string",
+        "allowedValues": ["dev", "staging", "prod"],
+        "metadata": {
+          "description": "Environment name"
+        }
+      }
+    },
+    "variables": {
+      "autoScaleSettingsName": "[concat(parameters('appServicePlanName'), '-autoscale')]"
+    },
+    "resources": [
+      {
+        "type": "Microsoft.Insights/autoscalesettings",
+        "apiVersion": "2022-10-01",
+        "name": "[variables('autoScaleSettingsName')]",
+        "location": "[resourceGroup().location]",
+        "condition": "[equals(parameters('environment'), 'prod')]",
+        "properties": {
+          "profiles": [
+            {
+              "name": "Default",
+              "capacity": {
+                "minimum": "1",
+                "maximum": "2", 
+                "default": "1"
+              },
+              "rules": [
+                {
+                  "metricTrigger": {
+                    "metricName": "CpuPercentage",
+                    "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+                    "timeGrain": "PT1M",
+                    "statistic": "Average",
+                    "timeWindow": "PT10M",
+                    "timeAggregation": "Average",
+                    "operator": "GreaterThan",
+                    "threshold": 85
+                  },
+                  "scaleAction": {
+                    "direction": "Increase",
+                    "type": "ChangeCount",
+                    "value": "1",
+                    "cooldown": "PT15M"
+                  }
+                },
+                {
+                  "metricTrigger": {
+                    "metricName": "CpuPercentage", 
+                    "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+                    "timeGrain": "PT1M",
+                    "statistic": "Average",
+                    "timeWindow": "PT20M",
+                    "timeAggregation": "Average",
+                    "operator": "LessThan",
+                    "threshold": 30
+                  },
+                  "scaleAction": {
+                    "direction": "Decrease",
+                    "type": "ChangeCount", 
+                    "value": "1",
+                    "cooldown": "PT30M"
+                  }
+                },
+                {
+                  "metricTrigger": {
+                    "metricName": "MemoryPercentage",
+                    "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+                    "timeGrain": "PT1M",
+                    "statistic": "Average", 
+                    "timeWindow": "PT10M",
+                    "timeAggregation": "Average",
+                    "operator": "GreaterThan",
+                    "threshold": 90
+                  },
+                  "scaleAction": {
+                    "direction": "Increase",
+                    "type": "ChangeCount",
+                    "value": "1",
+                    "cooldown": "PT15M"
+                  }
+                }
+              ]
+            }
+          ],
+          "enabled": true,
+          "name": "[variables('autoScaleSettingsName')]",
+          "targetResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+          "notifications": [
+            {
+              "operation": "Scale",
+              "email": {
+                "sendToSubscriptionAdministrator": false,
+                "sendToSubscriptionCoAdministrators": false,
+                "customEmails": [
+                  "infrastructure@wearelevel.ai"
+                ]
+              }
+            }
+          ]
+        },
+        "tags": {
+          "environment": "[parameters('environment')]",
+          "service": "ask-eve-assist",
+          "cost-control": "enabled"
+        }
+      }
+    ],
+    "outputs": {
+      "autoScaleSettingsName": {
+        "type": "string",
+        "value": "[variables('autoScaleSettingsName')]"
+      }
+    }
+  },
+  "implementation": {
+    "monitoring": {
+      "description": "Real-time monitoring of scaling events and cost impact",
+      "metrics": [
+        "Instance count changes",
+        "Cost per scaling event", 
+        "Performance impact of scaling",
+        "User experience during scaling"
+      ]
+    },
+    "testing": {
+      "description": "Load testing to validate scaling behavior",
+      "scenarios": [
+        "Gradual load increase",
+        "Sudden traffic spikes",
+        "Extended high load periods",
+        "Cost impact validation"
+      ]
+    },
+    "safety": {
+      "description": "Ensure scaling doesn't impact health service delivery",
+      "requirements": [
+        "Zero downtime during scaling",
+        "Maintain response times under 3 seconds",
+        "Preserve user sessions",
+        "No impact on safety systems"
+      ]
+    }
+  }
+}

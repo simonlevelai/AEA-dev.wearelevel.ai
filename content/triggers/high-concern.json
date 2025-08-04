@@ -1,0 +1,106 @@
+{
+  "medical_concerns": {
+    "worrying_symptoms": [
+      "severe headache",
+      "persistent vomiting",
+      "high fever",
+      "unexplained weight loss",
+      "severe abdominal pain",
+      "blood in stool",
+      "blood in urine",
+      "persistent cough with blood",
+      "sudden vision changes",
+      "severe dizziness",
+      "numbness in limbs",
+      "difficulty swallowing",
+      "unusual lumps or growths",
+      "persistent fatigue",
+      "irregular heartbeat"
+    ],
+    "medication_concerns": [
+      "overdose",
+      "took too many pills",
+      "wrong medication",
+      "allergic reaction to medication",
+      "medication not working",
+      "side effects getting worse",
+      "stopped taking medication suddenly",
+      "mixing medications",
+      "double dosed",
+      "medication interaction"
+    ],
+    "pregnancy_concerns": [
+      "pregnant and bleeding",
+      "severe morning sickness",
+      "pregnancy complications",
+      "contractions",
+      "water broke",
+      "baby not moving",
+      "severe pregnancy pain",
+      "high blood pressure pregnancy",
+      "gestational diabetes",
+      "premature labor"
+    ]
+  },
+  "mental_health_concerns": {
+    "depression_indicators": [
+      "feeling very depressed",
+      "can't get out of bed",
+      "lost interest in everything",
+      "sleeping all the time",
+      "can't eat",
+      "feeling worthless",
+      "everything feels pointless",
+      "crying constantly",
+      "no energy for anything",
+      "isolated from everyone"
+    ],
+    "anxiety_indicators": [
+      "panic attack",
+      "can't stop worrying",
+      "anxiety is overwhelming",
+      "constant fear",
+      "heart racing anxiety",
+      "anxiety affecting daily life",
+      "paranoid thoughts",
+      "can't control anxiety",
+      "having flashbacks",
+      "nightmares every night"
+    ],
+    "substance_concerns": [
+      "drinking too much",
+      "can't stop drinking",
+      "using drugs to cope",
+      "addiction is controlling me",
+      "withdrawal symptoms",
+      "relapsed again",
+      "family concerned about my drinking",
+      "drugs affecting my health",
+      "need help with addiction",
+      "substance abuse problem"
+    ]
+  },
+  "social_concerns": {
+    "abuse_indicators": [
+      "being emotionally abused",
+      "partner controls everything",
+      "afraid of my partner",
+      "walking on eggshells",
+      "isolated from friends and family",
+      "financial abuse",
+      "threatened regularly",
+      "psychological abuse",
+      "coercive control",
+      "feeling trapped in relationship"
+    ],
+    "elder_abuse": [
+      "caregiver mistreating me",
+      "financial exploitation",
+      "neglect from family",
+      "medication being withheld",
+      "isolated by caregiver",
+      "threatened by family member",
+      "afraid of my caregiver"
+    ]
+  }
+}

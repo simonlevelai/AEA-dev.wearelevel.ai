@@ -1,0 +1,43 @@
+{
+  "allowedDomains": [
+    "https://eveappeal.org.uk"
+  ],
+  "requiredDomain": "https://eveappeal.org.uk",
+  "urlPatterns": {
+    "website": {
+      "pattern": "^https://eveappeal\\.org\\.uk(/.*)?$",
+      "description": "Standard website pages from Eve Appeal"
+    },
+    "pdf": {
+      "pattern": "^https://eveappeal\\.org\\.uk/documents/[^/]+\\.pdf$",
+      "description": "PDF documents hosted on Eve Appeal website"
+    },
+    "pdfPage": {
+      "pattern": "^https://eveappeal\\.org\\.uk/documents/[^/]+\\.pdf#page=\\d+$",
+      "description": "Specific pages within PDF documents"
+    }
+  },
+  "validation": {
+    "checkAccessibility": true,
+    "timeoutMs": 10000,
+    "retryAttempts": 2,
+    "retryDelayMs": 1000,
+    "allowedStatusCodes": [200, 201, 202, 204]
+  },
+  "fallbackUrls": {
+    "ovarian": "https://eveappeal.org.uk/information/ovarian-cancer",
+    "cervical": "https://eveappeal.org.uk/information/cervical-cancer",
+    "endometrial": "https://eveappeal.org.uk/information/endometrial-cancer",
+    "vulval": "https://eveappeal.org.uk/information/vulval-cancer",
+    "vaginal": "https://eveappeal.org.uk/information/vaginal-cancer",
+    "general": "https://eveappeal.org.uk/information",
+    "symptoms": "https://eveappeal.org.uk/symptoms",
+    "support": "https://eveappeal.org.uk/support"
+  },
+  "enforcement": {
+    "blockContentWithoutUrls": true,
+    "blockInvalidDomains": true,
+    "blockInaccessibleUrls": false,
+    "alertOnViolations": true
+  }
+}

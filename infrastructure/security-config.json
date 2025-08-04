@@ -1,0 +1,378 @@
+{
+  "securityConfiguration": {
+    "description": "Comprehensive security configuration for Ask Eve Assist health chatbot",
+    "criticality": "HIGHEST - Protecting sensitive health information and ensuring service availability",
+    "compliance": [
+      "UK GDPR",
+      "NHS Data Security and Protection Toolkit",
+      "ISO 27001 principles",
+      "UK data residency requirements"
+    ],
+    "threatModel": {
+      "assets": [
+        "Health conversation data",
+        "User personal information", 
+        "OpenAI API keys",
+        "System availability (life-critical)",
+        "The Eve Appeal integration data"
+      ],
+      "threats": [
+        "Unauthorized access to health data",
+        "API key exposure",
+        "Service disruption affecting health advice",
+        "Data breach or leak",
+        "Malicious use of AI services"
+      ]
+    },
+    "networkSecurity": {
+      "httpsOnly": {
+        "enabled": true,
+        "minTlsVersion": "1.2",
+        "description": "All communication encrypted with TLS 1.2 minimum"
+      },
+      "corsPolicy": {
+        "allowedOrigins": [
+          "https://eveappeal.org.uk",
+          "https://*.eveappeal.org.uk"
+        ],
+        "allowedMethods": ["GET", "POST"],
+        "allowedHeaders": ["Content-Type", "Authorization"],
+        "description": "Restrict cross-origin requests to Eve Appeal domains only"
+      },
+      "ipRestrictions": {
+        "enabled": false,
+        "description": "Public access required for health service, but monitored for abuse"
+      },
+      "ddosProtection": {
+        "enabled": true,
+        "provider": "Azure DDoS Protection",
+        "description": "Protect against denial of service attacks on health service"
+      }
+    },
+    "authentication": {
+      "appService": {
+        "managedIdentity": {
+          "enabled": true,
+          "type": "SystemAssigned",
+          "description": "System-assigned managed identity for secure Azure service access"
+        },
+        "authentication": {
+          "enabled": false,
+          "description": "Public health service - no user authentication required"
+        }
+      },
+      "keyVault": {
+        "accessPolicies": [
+          {
+            "objectId": "managed-identity",
+            "permissions": {
+              "secrets": ["get", "list"],
+              "description": "App Service can read secrets only"
+            }
+          }
+        ],
+        "networkAccess": {
+          "defaultAction": "Allow",
+          "ipRules": [],
+          "description": "Allow access from Azure services"
+        }
+      }
+    },
+    "dataProtection": {
+      "encryption": {
+        "atRest": {
+          "cosmosDB": {
+            "enabled": true,
+            "keyManagement": "Microsoft-managed keys",
+            "description": "Automatic encryption for all Cosmos DB data"
+          },
+          "storage": {
+            "enabled": true,
+            "keyManagement": "Microsoft-managed keys", 
+            "description": "Blob storage encrypted with platform keys"
+          },
+          "appInsights": {
+            "enabled": true,
+            "description": "Application Insights data encrypted at rest"
+          }
+        },
+        "inTransit": {
+          "tlsVersion": "1.2",
+          "cipherSuites": "Strong ciphers only",
+          "description": "All data transmission encrypted with TLS 1.2+"
+        }
+      },
+      "dataMinimization": {
+        "piiHandling": {
+          "principle": "Never store PII in conversation logs",
+          "implementation": [
+            "No user names or contact details stored",
+            "Anonymous session IDs only",
+            "Automatic PII detection and redaction",
+            "Conversation data anonymized"
+          ]
+        },
+        "retention": {
+          "conversationData": "30 days maximum",
+          "logData": "90 days for troubleshooting",
+          "auditLogs": "1 year for compliance",
+          "description": "Minimal retention periods to reduce exposure"
+        }
+      }
+    },
+    "applicationSecurity": {
+      "inputValidation": {
+        "enabled": true,
+        "measures": [
+          "Input sanitization for all user messages",
+          "SQL injection prevention (parameterized queries)",
+          "XSS protection in web responses",
+          "File upload restrictions (none allowed)",
+          "Rate limiting per IP address"
+        ]
+      },
+      "secretsManagement": {
+        "keyVault": {
+          "secrets": [
+            "openai-api-key",
+            "eve-appeal-api-key", 
+            "teams-webhook-url",
+            "emergency-contact-webhook"
+          ],
+          "rotation": {
+            "frequency": "90 days",
+            "automation": "Manual rotation with notification",
+            "description": "Regular secret rotation to minimize exposure"
+          }
+        },
+        "applicationSettings": {
+          "noSecretsInConfig": true,
+          "keyVaultReferences": true,
+          "description": "All secrets referenced from Key Vault, never stored in app settings"
+        }
+      },
+      "rateLimiting": {
+        "userRequests": {
+          "limit": "100 requests per hour per IP",
+          "description": "Prevent abuse while allowing legitimate health conversations"
+        },
+        "openaiRequests": {
+          "limit": "500 requests per hour total",
+          "description": "Control costs and prevent API abuse"
+        }
+      }
+    },
+    "monitoring": {
+      "securityEvents": [
+        {
+          "name": "Failed Authentication Attempts",
+          "query": "requests | where resultCode in (401, 403)",
+          "threshold": 10,
+          "window": "5 minutes",
+          "severity": "Medium"
+        },
+        {
+          "name": "Unusual Traffic Patterns",
+          "query": "requests | summarize count() by client_IP | where count_ > 1000",
+          "threshold": 1,
+          "window": "1 hour", 
+          "severity": "High"
+        },
+        {
+          "name": "Secret Access Failures",
+          "query": "KeyVaultEvents | where ResultType != 'Success'",
+          "threshold": 5,
+          "window": "15 minutes",
+          "severity": "High"
+        },
+        {
+          "name": "Suspicious Health Queries",
+          "query": "customEvents | where name == 'SuspiciousQuery'",
+          "threshold": 1,
+          "window": "1 minute",
+          "severity": "Critical"
+        }
+      ],
+      "auditLogging": {
+        "enabled": true,
+        "events": [
+          "All Key Vault access",
+          "Configuration changes",
+          "Security-related errors",
+          "High-volume usage patterns",
+          "Emergency escalation events"
+        ],
+        "retention": "1 year",
+        "integrity": "Log tampering detection enabled"
+      }
+    },
+    "incidentResponse": {
+      "classification": {
+        "P1": {
+          "description": "Service completely unavailable - health advice not accessible",
+          "responseTime": "15 minutes",
+          "escalation": "Immediate"
+        },
+        "P2": {
+          "description": "Security breach or data exposure",
+          "responseTime": "30 minutes", 
+          "escalation": "Immediate"
+        },
+        "P3": {
+          "description": "Performance degradation affecting user experience",
+          "responseTime": "2 hours",
+          "escalation": "Business hours"
+        },
+        "P4": {
+          "description": "Non-critical security findings",
+          "responseTime": "24 hours",
+          "escalation": "Next business day"
+        }
+      },
+      "contacts": {
+        "primary": "infrastructure@wearelevel.ai",
+        "security": "security@wearelevel.ai",
+        "escalation": "The Eve Appeal emergency contact",
+        "vendor": "Azure Support (Priority/Severity A)"
+      },
+      "procedures": {
+        "securityBreach": [
+          "1. Immediately isolate affected systems",
+          "2. Notify security team and stakeholders",
+          "3. Preserve forensic evidence",
+          "4. Contact The Eve Appeal within 1 hour",
+          "5. Begin containment and remediation",
+          "6. Document incident timeline",
+          "7. Conduct post-incident review"
+        ],
+        "serviceOutage": [
+          "1. Assess impact on health service delivery",
+          "2. Implement emergency failover if available",
+          "3. Notify users via Eve Appeal channels",
+          "4. Begin recovery procedures",
+          "5. Monitor recovery progress",
+          "6. Validate all safety systems post-recovery"
+        ]
+      }
+    },
+    "armTemplate": {
+      "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "appServiceName": {
+          "type": "string",
+          "metadata": {
+            "description": "Name of the App Service to secure"
+          }
+        },
+        "keyVaultName": {
+          "type": "string",
+          "metadata": {
+            "description": "Name of the Key Vault for secrets"
+          }
+        }
+      },
+      "resources": [
+        {
+          "type": "Microsoft.Web/sites/config",
+          "apiVersion": "2022-03-01",
+          "name": "[concat(parameters('appServiceName'), '/web')]",
+          "properties": {
+            "httpsOnly": true,
+            "minTlsVersion": "1.2",
+            "ftpsState": "Disabled",
+            "remoteDebuggingEnabled": false,
+            "http20Enabled": true,
+            "clientAffinityEnabled": false,
+            "requestTracingEnabled": false,
+            "httpLoggingEnabled": true,
+            "detailedErrorLoggingEnabled": false,
+            "cors": {
+              "allowedOrigins": [
+                "https://eveappeal.org.uk",
+                "https://*.eveappeal.org.uk"
+              ],
+              "supportCredentials": false
+            },
+            "ipSecurityRestrictions": [
+              {
+                "ipAddress": "Any",
+                "action": "Allow",
+                "name": "Allow all",
+                "priority": 65000,
+                "description": "Public health service requires open access"
+              }
+            ]
+          }
+        },
+        {
+          "type": "Microsoft.KeyVault/vaults/accessPolicies",
+          "apiVersion": "2023-07-01",
+          "name": "[concat(parameters('keyVaultName'), '/add')]",
+          "properties": {
+            "accessPolicies": [
+              {
+                "tenantId": "[subscription().tenantId]",
+                "objectId": "[reference(resourceId('Microsoft.Web/sites', parameters('appServiceName')), '2022-03-01', 'full').identity.principalId]",
+                "permissions": {
+                  "secrets": [
+                    "get",
+                    "list"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "compliance": {
+      "ukGDPR": {
+        "lawfulBasis": "Vital interests (health and safety)",
+        "dataSubjectRights": [
+          "Right to information (privacy notice displayed)",
+          "Right of access (no personal data stored)",
+          "Right to rectification (no personal data stored)",
+          "Right to erasure (conversations automatically deleted)",
+          "Right to portability (not applicable - no personal data)"
+        ],
+        "dataProcessing": {
+          "purpose": "Providing health advice and safety information",
+          "lawfulBasis": "Vital interests under Article 6(1)(d)",
+          "specialCategory": "Health data under Article 9(2)(c)",
+          "retention": "Minimal - 30 days maximum"
+        }
+      },
+      "dataResidency": {
+        "requirement": "All data processing within UK jurisdiction",
+        "implementation": [
+          "Azure UK South primary region",
+          "Azure UK West secondary region",
+          "No cross-border data transfers",
+          "UK-based support and operations"
+        ],
+        "validation": "Quarterly compliance audit"
+      }
+    },
+    "testing": {
+      "securityTesting": {
+        "frequency": "Monthly",
+        "types": [
+          "Vulnerability scanning",
+          "Penetration testing (annual)",
+          "Security configuration review",
+          "Incident response testing"
+        ]
+      },
+      "complianceAudit": {
+        "frequency": "Quarterly",
+        "scope": [
+          "Data handling procedures",
+          "Security controls effectiveness",
+          "UK data residency compliance",
+          "Incident response capabilities"
+        ]
+      }
+    }
+  }
+}

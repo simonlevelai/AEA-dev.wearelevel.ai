@@ -1,0 +1,432 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "type": "string",
+      "allowedValues": ["dev", "staging", "prod"],
+      "metadata": { 
+        "description": "Deployment environment" 
+      }
+    },
+    "location": {
+      "type": "string", 
+      "defaultValue": "uksouth",
+      "allowedValues": ["uksouth", "ukwest"],
+      "metadata": { 
+        "description": "Azure region (UK only for compliance)" 
+      }
+    },
+    "monthlyBudgetLimit": {
+      "type": "int",
+      "defaultValue": 50,
+      "metadata": {
+        "description": "Monthly budget limit in GBP"
+      }
+    },
+    "alertEmail": {
+      "type": "string",
+      "metadata": {
+        "description": "Email address for cost and monitoring alerts"
+      }
+    }
+  },
+  "variables": {
+    "prefix": "askeve",
+    "appName": "[concat(variables('prefix'), '-', parameters('environment'))]",
+    "planName": "[concat(variables('appName'), '-plan')]",
+    "searchName": "[concat(variables('prefix'), '-search-', parameters('environment'))]",
+    "storageName": "[concat(variables('prefix'), 'storage', parameters('environment'))]",
+    "cosmosName": "[concat(variables('prefix'), '-cosmos-', parameters('environment'))]",
+    "insightsName": "[concat(variables('appName'), '-insights')]",
+    "keyVaultName": "[concat(variables('prefix'), '-kv-', parameters('environment'))]",
+    "budgetName": "[concat(variables('appName'), '-budget')]",
+    "actionGroupName": "[concat(variables('appName'), '-alerts')]",
+    "logAnalyticsName": "[concat(variables('appName'), '-logs')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2022-10-01",
+      "name": "[variables('logAnalyticsName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30,
+        "features": {
+          "immediatePurgeDataOn30Days": true
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Insights/actionGroups",
+      "apiVersion": "2022-06-01",
+      "name": "[variables('actionGroupName')]",
+      "location": "Global",
+      "properties": {
+        "groupShortName": "AskEveAlert",
+        "enabled": true,
+        "emailReceivers": [
+          {
+            "name": "InfrastructureTeam",
+            "emailAddress": "[parameters('alertEmail')]",
+            "useCommonAlertSchema": true
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2022-03-01", 
+      "name": "[variables('planName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "B1",
+        "tier": "Basic",
+        "size": "B1",
+        "family": "B",
+        "capacity": 1
+      },
+      "kind": "linux",
+      "properties": {
+        "reserved": true,
+        "perSiteScaling": false,
+        "elasticScaleEnabled": false,
+        "maximumElasticWorkerCount": 1,
+        "isSpot": false,
+        "targetWorkerCount": 0,
+        "targetWorkerSizeId": 0
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2022-03-01",
+      "name": "[variables('appName')]", 
+      "location": "[parameters('location')]",
+      "identity": { 
+        "type": "SystemAssigned" 
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+        "[resourceId('Microsoft.Insights/components', variables('insightsName'))]"
+      ],
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+        "httpsOnly": true,
+        "clientAffinityEnabled": false,
+        "siteConfig": {
+          "linuxFxVersion": "NODE|20-lts",
+          "alwaysOn": true,
+          "http20Enabled": true,
+          "minTlsVersion": "1.2",
+          "ftpsState": "Disabled",
+          "healthCheckPath": "/health",
+          "appSettings": [
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('insightsName'))).InstrumentationKey]"
+            },
+            {
+              "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('insightsName'))).ConnectionString]"
+            },
+            {
+              "name": "NODE_ENV",
+              "value": "[parameters('environment')]"
+            },
+            {
+              "name": "WEBSITE_NODE_DEFAULT_VERSION",
+              "value": "~20"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Search/searchServices",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('searchName')]",
+      "location": "[parameters('location')]", 
+      "sku": { 
+        "name": "free" 
+      },
+      "properties": {
+        "replicaCount": 1,
+        "partitionCount": 1,
+        "hostingMode": "default",
+        "publicNetworkAccess": "enabled",
+        "networkRuleSet": {
+          "ipRules": []
+        },
+        "encryptionWithCmk": {
+          "enforcement": "Unspecified"
+        },
+        "disableLocalAuth": false,
+        "authOptions": {
+          "apiKeyOnly": {}
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-01-01",
+      "name": "[variables('storageName')]",
+      "location": "[parameters('location')]",
+      "sku": { 
+        "name": "Standard_LRS" 
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "dnsEndpointType": "Standard",
+        "defaultToOAuthAuthentication": false,
+        "publicNetworkAccess": "Enabled",
+        "allowCrossTenantReplication": false,
+        "minimumTlsVersion": "TLS1_2",
+        "allowBlobPublicAccess": false,
+        "allowSharedKeyAccess": true,
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "virtualNetworkRules": [],
+          "ipRules": [],
+          "defaultAction": "Allow"
+        },
+        "supportsHttpsTrafficOnly": true,
+        "encryption": {
+          "requireInfrastructureEncryption": false,
+          "services": {
+            "file": {
+              "keyType": "Account",
+              "enabled": true
+            },
+            "blob": {
+              "keyType": "Account",
+              "enabled": true
+            }
+          },
+          "keySource": "Microsoft.Storage"
+        },
+        "accessTier": "Hot"
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts", 
+      "apiVersion": "2023-04-15",
+      "name": "[variables('cosmosName')]",
+      "location": "[parameters('location')]",
+      "kind": "GlobalDocumentDB",
+      "properties": {
+        "publicNetworkAccess": "Enabled",
+        "enableAutomaticFailover": false,
+        "enableMultipleWriteLocations": false,
+        "isVirtualNetworkFilterEnabled": false,
+        "virtualNetworkRules": [],
+        "disableKeyBasedMetadataWriteAccess": false,
+        "enableFreeTier": false,
+        "enableAnalyticalStorage": false,
+        "analyticalStorageConfiguration": {
+          "schemaType": "WellDefined"
+        },
+        "databaseAccountOfferType": "Standard",
+        "defaultIdentity": "FirstPartyIdentity",
+        "networkAclBypass": "None",
+        "disableLocalAuth": false,
+        "enablePartitionMerge": false,
+        "enableBurstCapacity": false,
+        "minimalTlsVersion": "Tls12",
+        "consistencyPolicy": {
+          "defaultConsistencyLevel": "Session",
+          "maxIntervalInSeconds": 5,
+          "maxStalenessPrefix": 100
+        },
+        "locations": [
+          {
+            "locationName": "[parameters('location')]",
+            "failoverPriority": 0,
+            "isZoneRedundant": false
+          }
+        ],
+        "capabilities": [
+          {
+            "name": "EnableServerless"
+          }
+        ],
+        "ipRules": [],
+        "backupPolicy": {
+          "type": "Periodic",
+          "periodicModeProperties": {
+            "backupIntervalInMinutes": 240,
+            "backupRetentionIntervalInHours": 8,
+            "backupStorageRedundancy": "Local"
+          }
+        },
+        "networkAclBypassResourceIds": []
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[variables('insightsName')]", 
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]"
+      ],
+      "properties": {
+        "Application_Type": "web",
+        "Flow_Type": "Redfield",
+        "Request_Source": "IbizaAIExtension",
+        "RetentionInDays": 30,
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]",
+        "IngestionMode": "LogAnalytics",
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled",
+        "SamplingPercentage": 10
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2023-07-01",
+      "name": "[variables('keyVaultName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('appName'))]"
+      ],
+      "properties": {
+        "sku": { 
+          "family": "A", 
+          "name": "standard" 
+        },
+        "tenantId": "[subscription().tenantId]",
+        "enabledForDeployment": false,
+        "enabledForDiskEncryption": false,
+        "enabledForTemplateDeployment": false,
+        "enableSoftDelete": true,
+        "softDeleteRetentionInDays": 7,
+        "enableRbacAuthorization": false,
+        "vaultUri": "[concat('https://', variables('keyVaultName'), '.vault.azure.net/')]",
+        "provisioningState": "Succeeded",
+        "publicNetworkAccess": "Enabled",
+        "accessPolicies": [
+          {
+            "tenantId": "[subscription().tenantId]",
+            "objectId": "[reference(resourceId('Microsoft.Web/sites', variables('appName')), '2022-03-01', 'full').identity.principalId]",
+            "permissions": {
+              "keys": [],
+              "secrets": [
+                "get",
+                "list"
+              ],
+              "certificates": []
+            }
+          }
+        ],
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "defaultAction": "Allow",
+          "ipRules": [],
+          "virtualNetworkRules": []
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Consumption/budgets",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('budgetName')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+      ],
+      "properties": {
+        "displayName": "[concat('Ask Eve Assist - ', parameters('environment'), ' Budget')]",
+        "amount": "[parameters('monthlyBudgetLimit')]",
+        "timeGrain": "Monthly",
+        "timePeriod": {
+          "startDate": "[concat(utcNow('yyyy-MM'), '-01')]",
+          "endDate": "2030-12-31"
+        },
+        "filter": {
+          "and": [
+            {
+              "dimensions": {
+                "name": "ResourceGroupName",
+                "operator": "In",
+                "values": [
+                  "[resourceGroup().name]"
+                ]
+              }
+            }
+          ]
+        },
+        "notifications": {
+          "actual_GreaterThan_80_Percent": {
+            "enabled": true,
+            "operator": "GreaterThan",
+            "threshold": 80,
+            "contactEmails": [
+              "[parameters('alertEmail')]"
+            ],
+            "contactGroups": [
+              "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+            ],
+            "thresholdType": "Actual"
+          },
+          "actual_GreaterThan_90_Percent": {
+            "enabled": true,
+            "operator": "GreaterThan",
+            "threshold": 90,
+            "contactEmails": [
+              "[parameters('alertEmail')]"
+            ],
+            "contactGroups": [
+              "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+            ],
+            "thresholdType": "Actual"
+          },
+          "actual_GreaterThan_96_Percent": {
+            "enabled": true,
+            "operator": "GreaterThan",
+            "threshold": 96,
+            "contactEmails": [
+              "[parameters('alertEmail')]"
+            ],
+            "contactGroups": [
+              "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+            ],
+            "thresholdType": "Actual"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "appServiceName": {
+      "type": "string",
+      "value": "[variables('appName')]"
+    },
+    "appServiceUrl": {
+      "type": "string",
+      "value": "[concat('https://', variables('appName'), '.azurewebsites.net')]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "value": "[variables('keyVaultName')]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[variables('storageName')]"
+    },
+    "searchServiceName": {
+      "type": "string",
+      "value": "[variables('searchName')]"
+    },
+    "cosmosDbAccountName": {
+      "type": "string",
+      "value": "[variables('cosmosName')]"
+    },
+    "applicationInsightsInstrumentationKey": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Insights/components', variables('insightsName'))).InstrumentationKey]"
+    }
+  }
+}

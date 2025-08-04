@@ -1,0 +1,137 @@
+{
+  "webchat": {
+    "enabled": true,
+    "endpoint": "/api/messages",
+    "features": {
+      "sendBox": true,
+      "suggestedActions": true,
+      "attachments": false,
+      "cardActions": true,
+      "uploadButton": false,
+      "speechToText": false,
+      "textToSpeech": false
+    },
+    "styling": {
+      "primaryColor": "#7B4397",
+      "backgroundColor": "#DC2430",
+      "userMessageBackgroundColor": "#7B4397",
+      "botMessageBackgroundColor": "#f1f3f4",
+      "avatarSize": 40,
+      "botAvatarInitials": "EA",
+      "userAvatarInitials": "You",
+      "fontFamily": "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+      "fontSize": 14,
+      "paddingRegular": 10,
+      "paddingWide": 20
+    },
+    "branding": {
+      "botName": "Ask Eve Assist",
+      "welcomeMessage": "Hello! I'm Ask Eve Assist, here to help you find trusted information about gynaecological health.",
+      "placeholderText": "Type your question about gynaecological health...",
+      "logoUrl": "https://eveappeal.org.uk/wp-content/uploads/2021/03/eve-appeal-logo-purple.png"
+    },
+    "disclaimer": {
+      "show": true,
+      "text": "I'm a digital assistant providing information from The Eve Appeal. I'm not a medical professional - always consult healthcare providers for medical advice.",
+      "position": "bottom"
+    }
+  },
+  "teams": {
+    "enabled": true,
+    "manifestVersion": "1.13",
+    "features": {
+      "personalBot": true,
+      "groupBot": true,
+      "teamBot": true,
+      "messaging": true,
+      "calling": false,
+      "media": false
+    },
+    "scopes": ["personal", "team", "groupchat"],
+    "branding": {
+      "name": "Ask Eve Assist",
+      "shortName": "Ask Eve",
+      "description": "Get trusted information about gynaecological health from The Eve Appeal",
+      "longDescription": "Ask Eve Assist is a digital assistant that helps you find reliable, evidence-based information about gynaecological health. All information comes from trusted sources including The Eve Appeal, NHS, and other health organizations.",
+      "accentColor": "#7B4397",
+      "icons": {
+        "outline": "icon-outline-32.png",
+        "color": "icon-color-192.png"
+      }
+    },
+    "commands": [
+      {
+        "title": "Ovarian Cancer Symptoms",
+        "description": "Learn about ovarian cancer warning signs"
+      },
+      {
+        "title": "Cervical Screening",
+        "description": "Information about cervical screening (smear tests)"
+      },
+      {
+        "title": "Support Services",
+        "description": "Find support and counselling services"
+      },
+      {
+        "title": "Speak to a Nurse",
+        "description": "Get contact details for The Eve Appeal nurse line"
+      }
+    ]
+  },
+  "directline": {
+    "enabled": true,
+    "tokenEndpoint": "/directline/token",
+    "features": {
+      "attachments": true,
+      "webSockets": true
+    }
+  },
+  "facebook": {
+    "enabled": false,
+    "pageId": "",
+    "appSecret": "",
+    "verifyToken": ""
+  },
+  "slack": {
+    "enabled": false,
+    "botToken": "",
+    "signingSecret": ""
+  },
+  "telegram": {
+    "enabled": false,
+    "botToken": ""
+  },
+  "security": {
+    "requireHttps": true,
+    "enableCors": true,
+    "allowedOrigins": [
+      "https://eveappeal.org.uk",
+      "https://www.eveappeal.org.uk",
+      "http://localhost:3000",
+      "http://localhost:3978"
+    ],
+    "rateLimiting": {
+      "enabled": true,
+      "maxRequests": 100,
+      "windowMinutes": 15
+    },
+    "contentFiltering": {
+      "enabled": true,
+      "blockInappropriateContent": true,
+      "logViolations": true
+    }
+  },
+  "monitoring": {
+    "enabled": true,
+    "applicationInsights": {
+      "enabled": false,
+      "instrumentationKey": ""
+    },
+    "logging": {
+      "level": "info",
+      "includeUserMessages": false,
+      "includeBotResponses": true,
+      "includeErrorDetails": true
+    }
+  }
+}

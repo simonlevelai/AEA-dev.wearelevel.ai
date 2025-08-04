@@ -1,0 +1,112 @@
+{
+  "emotional_support_triggers": {
+    "stress_indicators": [
+      "feeling stressed",
+      "overwhelmed with work",
+      "too much pressure",
+      "can't handle the stress",
+      "burned out",
+      "exhausted mentally",
+      "struggling to cope",
+      "stress affecting sleep",
+      "stress headaches",
+      "tension in body"
+    ],
+    "loneliness_indicators": [
+      "feeling lonely",
+      "no one to talk to",
+      "isolated and alone",
+      "missing human connection",
+      "feel invisible",
+      "nobody understands me",
+      "alone in this",
+      "disconnected from others",
+      "social isolation",
+      "craving companionship"
+    ],
+    "grief_indicators": [
+      "lost someone close",
+      "dealing with death",
+      "grieving",
+      "missing someone who died",
+      "funeral recently",
+      "can't accept the loss",
+      "overwhelming sadness",
+      "lost my partner",
+      "pet died",
+      "anniversary of death"
+    ],
+    "relationship_concerns": [
+      "relationship problems",
+      "partner and I fighting",
+      "considering divorce",
+      "marriage in trouble",
+      "breakup",
+      "communication issues",
+      "trust issues",
+      "feeling unloved",
+      "relationship anxiety",
+      "jealousy problems"
+    ],
+    "work_concerns": [
+      "hate my job",
+      "workplace bullying",
+      "lost my job",
+      "unemployment stress",
+      "work anxiety",
+      "difficult boss",
+      "workplace harassment",
+      "career uncertainty",
+      "job insecurity",
+      "work-life balance"
+    ],
+    "family_concerns": [
+      "family problems",
+      "caring for elderly parent",
+      "family conflict",
+      "parenting struggles",
+      "teenage children issues",
+      "family dysfunction",
+      "sibling rivalry",
+      "family not supportive",
+      "generational trauma",
+      "family expectations"
+    ]
+  },
+  "general_wellbeing": {
+    "sleep_issues": [
+      "can't sleep",
+      "insomnia",
+      "nightmares",
+      "sleep problems",
+      "waking up tired",
+      "sleep anxiety",
+      "restless nights",
+      "early morning waking",
+      "sleep deprivation"
+    ],
+    "eating_concerns": [
+      "lost appetite",
+      "eating too much",
+      "comfort eating",
+      "food anxiety",
+      "body image issues",
+      "unhealthy relationship with food",
+      "emotional eating",
+      "diet struggles",
+      "weight concerns"
+    ],
+    "self_esteem": [
+      "low self-esteem",
+      "hate myself",
+      "feel worthless",
+      "not good enough",
+      "comparing myself to others",
+      "lack confidence",
+      "self-doubt",
+      "imposter syndrome",
+      "body dysmorphia",
+      "perfectionism"
+    ]
+  }
+}

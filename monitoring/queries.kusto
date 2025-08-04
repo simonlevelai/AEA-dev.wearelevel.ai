@@ -1,0 +1,310 @@
+// Ask Eve Assist - Kusto Queries for Log Analytics
+// Infrastructure Agent - Monitoring and troubleshooting queries
+// These queries help monitor the health chatbot's performance and safety systems
+
+// ============================================================================
+// HEALTH & AVAILABILITY MONITORING
+// ============================================================================
+
+// Overall application health status
+requests
+| where timestamp > ago(1h)
+| summarize 
+    TotalRequests = count(),
+    SuccessfulRequests = countif(success == true),
+    FailedRequests = countif(success == false),
+    AvgResponseTime = avg(duration),
+    P95ResponseTime = percentile(duration, 95)
+| extend HealthStatus = iff(SuccessfulRequests * 100.0 / TotalRequests >= 99, "Healthy", "Degraded")
+
+// Health endpoint monitoring
+requests
+| where url contains "/health"
+    and timestamp > ago(24h)
+| summarize 
+    HealthChecks = count(),
+    FailedHealthChecks = countif(success == false),
+    AvgResponseTime = avg(duration)
+    by bin(timestamp, 5m)
+| extend HealthRate = (HealthChecks - FailedHealthChecks) * 100.0 / HealthChecks
+| render timechart
+
+// ============================================================================ 
+// SAFETY SYSTEM MONITORING (CRITICAL)
+// ============================================================================
+
+// Safety system failures - IMMEDIATE ATTENTION REQUIRED
+exceptions
+| where timestamp > ago(1h)
+    and (outerMessage contains "Safety" 
+         or outerMessage contains "Escalation" 
+         or outerMessage contains "Emergency"
+         or outerMessage contains "Medical")
+| project timestamp, message, outerMessage, operation_Name, customDimensions
+| order by timestamp desc
+
+// Escalation events tracking
+customEvents
+| where name == "HealthEscalation" or name == "EmergencyContact"
+    and timestamp > ago(24h)
+| project timestamp, name, customDimensions.severity, customDimensions.reason, customDimensions.userId
+| order by timestamp desc
+
+// Medical disclaimer compliance
+requests
+| where url contains "/chat" or url contains "/ask"
+    and timestamp > ago(1h)
+| join kind=leftanti (
+    customEvents
+    | where name == "MedicalDisclaimerShown"
+) on operation_Id
+| project timestamp, url, operation_Id, user_Id
+| summarize PotentialComplianceIssues = count()
+
+// ============================================================================
+// PERFORMANCE MONITORING  
+// ============================================================================
+
+// Response time analysis
+requests
+| where timestamp > ago(24h)
+| summarize 
+    RequestCount = count(),
+    AvgDuration = avg(duration),
+    P50Duration = percentile(duration, 50),
+    P95Duration = percentile(duration, 95),
+    P99Duration = percentile(duration, 99)
+    by bin(timestamp, 1h)
+| render timechart
+
+// Slow requests identification
+requests
+| where duration > 3000  // Slower than 3 seconds
+    and timestamp > ago(6h)
+| project timestamp, url, duration, operation_Name, user_Id
+| order by duration desc
+| take 50
+
+// Error rate analysis  
+requests
+| where timestamp > ago(24h)
+| summarize 
+    TotalRequests = count(),
+    Errors = countif(success == false),
+    ErrorRate = countif(success == false) * 100.0 / count()
+    by bin(timestamp, 1h), resultCode
+| where ErrorRate > 0
+| render timechart
+
+// ============================================================================
+// COST MONITORING & OPENAI USAGE
+// ============================================================================
+
+// OpenAI API usage tracking (cost control)
+dependencies
+| where name contains "openai"
+    and timestamp > ago(24h)
+| extend 
+    TokensUsed = toint(customDimensions.tokens_used),
+    Model = tostring(customDimensions.model),
+    Cost = todouble(customDimensions.estimated_cost)
+| summarize 
+    RequestCount = count(),
+    TotalTokens = sum(TokensUsed),
+    EstimatedCost = sum(Cost),
+    AvgTokensPerRequest = avg(TokensUsed)
+    by bin(timestamp, 1h), Model
+| render timechart
+
+// Daily cost projection
+dependencies
+| where name contains "openai"
+    and timestamp > ago(7d)
+| extend 
+    TokensUsed = toint(customDimensions.tokens_used),
+    Cost = todouble(customDimensions.estimated_cost)
+| summarize 
+    DailyCost = sum(Cost),
+    DailyTokens = sum(TokensUsed),
+    DailyRequests = count()
+    by bin(timestamp, 1d)
+| extend MonthlyProjection = DailyCost * 30
+| where MonthlyProjection > 40  // Alert if approaching £40 limit
+
+// High usage users (potential abuse detection)
+dependencies
+| where name contains "openai"
+    and timestamp > ago(24h)
+| extend UserId = tostring(customDimensions.user_id)
+| summarize 
+    RequestCount = count(),
+    TotalTokens = sum(toint(customDimensions.tokens_used))
+    by UserId
+| where RequestCount > 50  // More than 50 requests per day
+| order by RequestCount desc
+
+// ============================================================================
+// USER INTERACTION PATTERNS
+// ============================================================================
+
+// Conversation flow analysis  
+customEvents
+| where name in ("ConversationStart", "ConversationEnd", "UserMessage", "BotResponse")
+    and timestamp > ago(24h)
+| extend 
+    SessionId = tostring(customDimensions.session_id),
+    MessageType = tostring(customDimensions.message_type),
+    Topic = tostring(customDimensions.health_topic)
+| summarize 
+    Events = count(),
+    UniqueTopics = dcount(Topic)
+    by SessionId
+| summarize 
+    TotalSessions = count(),
+    AvgEventsPerSession = avg(Events),
+    AvgTopicsPerSession = avg(UniqueTopics)
+
+// Popular health topics
+customEvents
+| where name == "HealthTopicIdentified"
+    and timestamp > ago(7d)
+| extend Topic = tostring(customDimensions.health_topic)
+| summarize RequestCount = count() by Topic
+| order by RequestCount desc
+| take 20
+
+// ============================================================================
+// INFRASTRUCTURE MONITORING
+// ============================================================================
+
+// Database performance (Cosmos DB)
+dependencies
+| where type == "Azure DocumentDB"
+    and timestamp > ago(6h)
+| summarize 
+    RequestCount = count(),
+    AvgDuration = avg(duration),
+    P95Duration = percentile(duration, 95),
+    FailureRate = countif(success == false) * 100.0 / count()
+    by bin(timestamp, 30m)
+| render timechart
+
+// Storage account operations
+dependencies  
+| where type == "Azure blob"
+    and timestamp > ago(6h)
+| summarize 
+    Operations = count(),
+    AvgDuration = avg(duration),
+    Failures = countif(success == false)
+    by bin(timestamp, 30m), name
+| render timechart
+
+// ============================================================================
+// SECURITY & COMPLIANCE MONITORING
+// ============================================================================
+
+// Failed authentication attempts
+requests
+| where resultCode in (401, 403)
+    and timestamp > ago(24h)
+| extend ClientIP = client_IP
+| summarize FailedAttempts = count() by ClientIP, bin(timestamp, 1h)
+| where FailedAttempts > 10  // Potential security threat
+| order by FailedAttempts desc
+
+// Data residency compliance check
+requests
+| where timestamp > ago(1h)
+| extend Region = tostring(customDimensions.processing_region)
+| where Region !in ("UK South", "UK West")  // Non-UK processing detected
+| project timestamp, url, Region, operation_Id
+| summarize ComplianceViolations = count()
+
+// ============================================================================
+// TROUBLESHOOTING QUERIES
+// ============================================================================
+
+// Recent errors with full context
+exceptions
+| where timestamp > ago(2h)
+| join kind=inner (
+    requests
+    | where timestamp > ago(2h)
+) on operation_Id
+| project 
+    timestamp,
+    operation_Name,
+    url,
+    message,
+    outerMessage,
+    customDimensions,
+    user_Id,
+    session_Id
+| order by timestamp desc
+| take 25
+
+// Performance troubleshooting
+requests
+| where duration > 5000  // Very slow requests
+    and timestamp > ago(6h)
+| join kind=leftouter (
+    dependencies
+    | where timestamp > ago(6h)
+) on operation_Id
+| project 
+    timestamp,
+    url,
+    request_duration = duration,
+    dependency_name = name,
+    dependency_duration = duration1,
+    dependency_success = success1,
+    operation_Id
+| order by request_duration desc
+
+// ============================================================================
+// BUSINESS METRICS
+// ============================================================================
+
+// Daily active users
+requests
+| where timestamp > ago(30d)
+    and user_Id != ""
+| summarize ActiveUsers = dcount(user_Id) by bin(timestamp, 1d)
+| render timechart
+
+// Conversation completion rate
+customEvents
+| where name in ("ConversationStart", "ConversationEnd")
+    and timestamp > ago(7d)
+| extend SessionId = tostring(customDimensions.session_id)
+| summarize 
+    Starts = countif(name == "ConversationStart"),
+    Ends = countif(name == "ConversationEnd")
+    by SessionId
+| summarize 
+    TotalStarts = sum(Starts),
+    TotalEnds = sum(Ends)
+| extend CompletionRate = TotalEnds * 100.0 / TotalStarts
+
+// ============================================================================
+// ALERTING SUPPORT QUERIES
+// ============================================================================
+
+// Query for cost alert automation
+dependencies
+| where name contains "openai"
+    and timestamp > ago(1d)
+| extend Cost = todouble(customDimensions.estimated_cost)
+| summarize DailyCost = sum(Cost)
+| extend MonthlyProjection = DailyCost * 30
+| where MonthlyProjection > 45  // Approaching £45 limit
+
+// Query for safety system health check
+union
+(exceptions | where outerMessage contains "Safety" | extend AlertType = "Safety Exception"),
+(customEvents | where name == "SafetySystemCheck" and tostring(customDimensions.status) != "healthy" | extend AlertType = "Safety System Unhealthy"),
+(requests | where url contains "/emergency" and success == false | extend AlertType = "Emergency Endpoint Failed")
+| where timestamp > ago(5m)
+| summarize AlertCount = count() by AlertType
+| where AlertCount > 0

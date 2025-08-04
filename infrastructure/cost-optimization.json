@@ -1,0 +1,141 @@
+{
+  "costOptimization": {
+    "monthlyBudget": {
+      "total": 50,
+      "currency": "GBP",
+      "breakdown": {
+        "appService": {
+          "tier": "B1 Basic",
+          "estimatedCost": 10,
+          "description": "Always-on enabled for reliability, auto-scaling disabled",
+          "optimization": "Use B1 tier for production, disable auto-scaling to prevent cost spikes"
+        },
+        "aiSearch": {
+          "tier": "Free",
+          "estimatedCost": 0,
+          "limits": {
+            "storage": "50MB",
+            "documents": "10,000",
+            "indexes": "3"
+          },
+          "description": "Free tier sufficient for health content indexing",
+          "optimization": "Monitor usage closely, upgrade to Basic if limits approached"
+        },
+        "storage": {
+          "type": "Standard_LRS",
+          "estimatedCost": 2,
+          "size": "5GB",
+          "description": "Local redundancy sufficient for non-critical data",
+          "optimization": "Use lifecycle management to move old data to cool tier"
+        },
+        "cosmosDB": {
+          "mode": "Serverless",
+          "estimatedCost": 5,
+          "description": "Pay-per-request model for conversation metadata",
+          "optimization": "Store only essential conversation data, no PII"
+        },
+        "applicationInsights": {
+          "estimatedCost": 5,
+          "sampling": "10%",
+          "retention": "30 days",
+          "description": "Reduced sampling and retention for cost control",
+          "optimization": "Monitor data ingestion, increase sampling only if needed"
+        },
+        "azureOpenAI": {
+          "model": "gpt-4o-mini",
+          "estimatedCost": 25,
+          "estimate": "15,000 messages/month at ~50 tokens average",
+          "description": "Primary cost component - carefully monitored",
+          "optimization": "Use mini model for cost efficiency, implement token limits"
+        },
+        "keyVault": {
+          "tier": "Standard",
+          "estimatedCost": 1,
+          "description": "Essential for secure secret management",
+          "optimization": "Minimal secrets storage, regular cleanup"
+        },
+        "logAnalytics": {
+          "estimatedCost": 1,
+          "retention": "30 days",
+          "description": "Centralized logging with cost-effective retention",
+          "optimization": "Query-based alerting to minimize ingestion costs"
+        },
+        "buffer": {
+          "estimatedCost": 1,
+          "description": "Safety margin for unexpected usage spikes",
+          "optimization": "Emergency cost controls at 96% budget utilization"
+        }
+      }
+    },
+    "costAlerts": [
+      {
+        "threshold": 40,
+        "percentage": 80,
+        "severity": "Warning",
+        "actions": [
+          "Email infrastructure team",
+          "Reduce Application Insights sampling to 5%",
+          "Review OpenAI usage patterns"
+        ],
+        "message": "80% of monthly budget reached (£40) - implement cost monitoring measures"
+      },
+      {
+        "threshold": 45,
+        "percentage": 90,
+        "severity": "Critical", 
+        "actions": [
+          "Alert on-call engineer",
+          "Reduce OpenAI request rate limits",
+          "Implement emergency token restrictions",
+          "Pause non-essential background tasks"
+        ],
+        "message": "90% of budget reached (£45) - emergency cost controls activated"
+      },
+      {
+        "threshold": 48,
+        "percentage": 96,
+        "severity": "Emergency",
+        "actions": [
+          "Immediate SMS alerts to all team members",
+          "Disable non-critical features",
+          "Implement strict OpenAI rate limiting",
+          "Consider temporary service degradation"
+        ],
+        "message": "96% of budget reached (£48) - risk of service disruption imminent"
+      }
+    ],
+    "emergencyProcedures": {
+      "budgetExceeded": {
+        "actions": [
+          "Disable OpenAI calls for non-critical requests",
+          "Reduce Application Insights to emergency-only sampling",
+          "Implement queue-based processing to batch requests",
+          "Activate manual approval for high-cost operations"
+        ],
+        "fallback": "Static health information with manual escalation pathways"
+      }
+    },
+    "monitoring": {
+      "dailyReview": {
+        "enabled": true,
+        "reportTime": "09:00 GMT",
+        "recipients": ["infrastructure@wearelevel.ai"]
+      },
+      "weeklyAnalysis": {
+        "enabled": true,
+        "reportDay": "Monday", 
+        "details": "Full cost breakdown and optimization recommendations"
+      },
+      "realTimeAlerts": {
+        "openAiUsageSpike": {
+          "threshold": "500 requests/hour",
+          "action": "Immediate team notification"
+        },
+        "storageGrowth": {
+          "threshold": "80% of allocated space",
+          "action": "Archive old data, extend storage if necessary"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,330 @@
+{
+  "backupPolicy": {
+    "description": "Comprehensive backup and disaster recovery policy for Ask Eve Assist",
+    "criticality": "HIGH - Life-critical health service requires robust backup strategy",
+    "compliance": "UK data residency requirements maintained in all backup operations",
+    "schedules": {
+      "infrastructure": {
+        "frequency": "daily",
+        "time": "02:00 GMT",
+        "retention": {
+          "daily": 7,
+          "weekly": 4,
+          "monthly": 12
+        },
+        "description": "Daily backup of infrastructure configuration and ARM templates"
+      },
+      "application": {
+        "frequency": "daily",
+        "time": "03:00 GMT", 
+        "retention": {
+          "daily": 14,
+          "weekly": 8,
+          "monthly": 6
+        },
+        "description": "Application code, configuration, and deployment artifacts"
+      },
+      "data": {
+        "frequency": "continuous",
+        "pointInTimeRecovery": "7 days",
+        "retention": {
+          "daily": 30,
+          "weekly": 12,
+          "monthly": 12
+        },
+        "description": "Cosmos DB automatic backups with point-in-time recovery"
+      },
+      "secrets": {
+        "frequency": "manual",
+        "description": "Key Vault secrets backed up manually using secure offline process",
+        "retention": "indefinite",
+        "security": "Encrypted with separate key, stored offline"
+      }
+    },
+    "components": {
+      "infrastructure": {
+        "items": [
+          "ARM templates and parameters",
+          "App Service configuration",
+          "Key Vault metadata (not secret values)",
+          "Cosmos DB account configuration",
+          "Storage account settings",
+          "Application Insights configuration",
+          "Monitoring and alert rules",
+          "Cost management settings"
+        ],
+        "method": "Azure CLI export + Git repository backup",
+        "automation": "GitHub Actions + Azure DevOps"
+      },
+      "application": {
+        "items": [
+          "Source code (Git repository)",
+          "Application settings and environment variables",
+          "Deployment scripts and configurations",
+          "CI/CD pipeline definitions",
+          "Documentation and runbooks"
+        ],
+        "method": "Git repository with multiple remote origins",
+        "automation": "Automated Git mirroring to multiple locations"
+      },
+      "data": {
+        "cosmosDB": {
+          "method": "Azure Cosmos DB automatic backup",
+          "features": [
+            "Continuous backup mode",
+            "Point-in-time restore",
+            "Cross-region backup replication"
+          ],
+          "retention": "30 days point-in-time recovery",
+          "compliance": "UK regions only"
+        },
+        "storage": {
+          "method": "Azure Blob Storage geo-redundant backup",
+          "replication": "RA-GRS (Read-Access Geo-Redundant)",
+          "compliance": "Secondary region within UK"
+        },
+        "applicationInsights": {
+          "method": "Continuous export to storage account",
+          "retention": "90 days",
+          "format": "JSON blobs for analysis and restore"
+        }
+      },
+      "secrets": {
+        "keyVault": {
+          "method": "Manual secure backup process",
+          "frequency": "After any secret change",
+          "security": [
+            "Encrypted with separate master key",
+            "Stored in offline secure location",
+            "Access logged and audited",
+            "Two-person authorization required"
+          ],
+          "recovery": "Manual restoration with security validation"
+        }
+      }
+    },
+    "testing": {
+      "schedule": "Monthly",
+      "procedures": [
+        {
+          "name": "Infrastructure Recovery Test",
+          "frequency": "Monthly",
+          "description": "Deploy to test environment from backup",
+          "successCriteria": [
+            "All resources deploy successfully",
+            "Application starts and passes health checks",
+            "Cost monitoring configured correctly",
+            "UK compliance maintained"
+          ]
+        },
+        {
+          "name": "Data Recovery Test",
+          "frequency": "Quarterly",
+          "description": "Restore Cosmos DB from point-in-time backup",
+          "successCriteria": [
+            "Data restored to specific point in time",
+            "All collections and documents intact",
+            "Application functions normally with restored data"
+          ]
+        },
+        {
+          "name": "Full Disaster Recovery Test",
+          "frequency": "Annually",
+          "description": "Complete disaster recovery to new subscription",
+          "successCriteria": [
+            "Full environment recreated from backups",
+            "All data and functionality restored",
+            "Recovery time under 4 hours",
+            "Cost monitoring functional"
+          ]
+        }
+      ]
+    },
+    "automation": {
+      "backupScript": "./deploy/scripts/backup.sh",
+      "monitoring": {
+        "alerts": [
+          {
+            "name": "Backup Failure",
+            "condition": "Backup job fails",
+            "severity": "High",
+            "action": "Immediate notification to infrastructure team"
+          },
+          {
+            "name": "Backup Size Anomaly",
+            "condition": "Backup size changes by >50%",
+            "severity": "Medium",
+            "action": "Investigation and verification"
+          },
+          {
+            "name": "Recovery Test Due",
+            "condition": "Monthly recovery test overdue",
+            "severity": "Medium",
+            "action": "Schedule recovery test"
+          }
+        ]
+      },
+      "githubActions": {
+        "workflow": ".github/workflows/backup.yml",
+        "triggers": [
+          "Daily scheduled run",
+          "Manual trigger",
+          "After production deployment"
+        ]
+      }
+    },
+    "recovery": {
+      "rto": {
+        "infrastructure": "2 hours",
+        "application": "1 hour", 
+        "data": "30 minutes",
+        "complete": "4 hours maximum"
+      },
+      "rpo": {
+        "infrastructure": "24 hours",
+        "application": "1 hour",
+        "data": "5 minutes",
+        "description": "Maximum acceptable data loss"
+      },
+      "procedures": {
+        "emergency": {
+          "contacts": [
+            "Infrastructure team: infrastructure@wearelevel.ai",
+            "On-call engineer: Available via Azure monitoring alerts",
+            "The Eve Appeal: emergency@eveappeal.org.uk"
+          ],
+          "steps": [
+            "1. Assess extent of failure and impact",
+            "2. Notify stakeholders and activate disaster recovery team",
+            "3. Create new resource group in UK region",
+            "4. Deploy infrastructure from latest backup",
+            "5. Restore application from Git repository",
+            "6. Restore data from Cosmos DB backup",
+            "7. Recreate secrets in Key Vault",
+            "8. Validate all systems and safety features",
+            "9. Update DNS and routing",
+            "10. Monitor for 24 hours post-recovery"
+          ]
+        },
+        "planned": {
+          "description": "Planned migration or upgrade scenarios",
+          "testing": "All procedures tested in non-production environment first",
+          "rollback": "Immediate rollback plan available"
+        }
+      }
+    },
+    "armTemplate": {
+      "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "storageAccountName": {
+          "type": "string",
+          "metadata": {
+            "description": "Storage account for backup data"
+          }
+        },
+        "cosmosAccountName": {
+          "type": "string",
+          "metadata": {
+            "description": "Cosmos DB account to configure backup"
+          }
+        },
+        "environment": {
+          "type": "string",
+          "allowedValues": ["dev", "staging", "prod"],
+          "metadata": {
+            "description": "Environment name"
+          }
+        }
+      },
+      "resources": [
+        {
+          "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+          "apiVersion": "2023-01-01",
+          "name": "[concat(parameters('storageAccountName'), '/default/backups')]",
+          "properties": {
+            "publicAccess": "None",
+            "metadata": {
+              "purpose": "Ask Eve Assist backup storage",
+              "environment": "[parameters('environment')]",
+              "retention": "90 days"
+            }
+          }
+        },
+        {
+          "type": "Microsoft.Storage/storageAccounts/managementPolicies",
+          "apiVersion": "2023-01-01", 
+          "name": "[concat(parameters('storageAccountName'), '/default')]",
+          "properties": {
+            "policy": {
+              "rules": [
+                {
+                  "name": "BackupRetentionPolicy",
+                  "enabled": true,
+                  "type": "Lifecycle",
+                  "definition": {
+                    "filters": {
+                      "blobTypes": ["blockBlob"],
+                      "prefixMatch": ["backups/"]
+                    },
+                    "actions": {
+                      "baseBlob": {
+                        "tierToCool": {
+                          "daysAfterModificationGreaterThan": 30
+                        },
+                        "tierToArchive": {
+                          "daysAfterModificationGreaterThan": 90  
+                        },
+                        "delete": {
+                          "daysAfterModificationGreaterThan": 365
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "compliance": {
+      "dataResidency": {
+        "requirement": "All backups must remain within UK jurisdiction",
+        "implementation": [
+          "Primary backups in UK South region",
+          "Secondary backups in UK West region", 
+          "No data transfer outside UK",
+          "Encryption keys managed within UK"
+        ],
+        "validation": "Monthly compliance audit"
+      },
+      "security": {
+        "encryption": {
+          "atRest": "AES-256 encryption for all backup data",
+          "inTransit": "TLS 1.2 minimum for all backup transfers",
+          "keys": "Customer-managed keys in UK Key Vault"
+        },
+        "access": {
+          "principle": "Least privilege access",
+          "authentication": "Multi-factor authentication required",
+          "audit": "All access logged and monitored"
+        }
+      }
+    },
+    "costs": {
+      "budgetAllocation": {
+        "storageAccount": "£2/month (included in main budget)",
+        "cosmosBackup": "Included in serverless pricing",
+        "dataTransfer": "Minimal (UK regions only)",
+        "total": "£2/month (4% of total budget)"
+      },
+      "optimization": [
+        "Use lifecycle policies to move old backups to cool/archive tiers",
+        "Compress backup files before storage",
+        "Remove unnecessary backup data older than retention period",
+        "Monitor backup storage growth and optimize"
+      ]
+    }
+  }
+}

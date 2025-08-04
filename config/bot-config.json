@@ -1,0 +1,80 @@
+{
+  "bot": {
+    "name": "Ask Eve Assist",
+    "id": "ask-eve-assist",
+    "description": "AI chatbot providing trusted gynaecological health information from The Eve Appeal",
+    "version": "1.0.0"
+  },
+  "branding": {
+    "primaryColor": "#7B4397",
+    "secondaryColor": "#DC2430",
+    "logoUrl": "https://eveappeal.org.uk/wp-content/uploads/2021/03/eve-appeal-logo-purple.png",
+    "websiteUrl": "https://eveappeal.org.uk"
+  },
+  "disclosure": {
+    "text": "Hello, I'm Ask Eve Assist - a digital assistant here to help you find information about gynaecological health. I'm not a medical professional or nurse, but I can help you access trusted information from The Eve Appeal.",
+    "followUp": "How can I help you today?",
+    "suggestedActions": [
+      "Ovarian cancer symptoms",
+      "Cervical screening info",
+      "Support services", 
+      "Speak to a nurse"
+    ]
+  },
+  "responses": {
+    "noContentFound": {
+      "text": "I don't have specific information about that topic in my knowledge base. For personalized health advice, I'd recommend:\n\n• Speaking to your GP\n• Contacting The Eve Appeal nurse line\n• Calling NHS 111 for health guidance\n\nIs there something else about gynaecological health I can help you find information about?",
+      "suggestedActions": [
+        "Ovarian cancer symptoms",
+        "Cervical screening", 
+        "Contact a nurse",
+        "Common conditions"
+      ]
+    },
+    "missingSourceUrl": {
+      "text": "I found some information about your question, but I'm unable to provide it without a proper source reference. This is to ensure you only receive information from trusted, verified sources.\n\nPlease try rephrasing your question, or contact The Eve Appeal directly for reliable health information.",
+      "suggestedActions": [
+        "Try different keywords",
+        "Contact Eve Appeal",
+        "Speak to a nurse"
+      ]
+    },
+    "technicalError": {
+      "text": "I'm sorry, I'm experiencing technical difficulties at the moment. Please try again in a few moments.\n\nIf you need immediate health information, please:\n• Contact your GP\n• Call NHS 111\n• Visit The Eve Appeal website directly",
+      "suggestedActions": [
+        "Try again",
+        "Contact GP",
+        "Visit Eve Appeal"
+      ]
+    }
+  },
+  "escalation": {
+    "selfHarm": {
+      "text": "I'm concerned about what you've shared. If you're having thoughts of self-harm, please reach out for urgent support:\n\n• Samaritans: 116 123 (free, 24/7)\n• Text SHOUT to 85258\n• Emergency services: 999\n\nYour safety and wellbeing matter. Please speak to someone who can help.",
+      "suggestedActions": ["Call Samaritans", "Emergency Services", "Text SHOUT"]
+    },
+    "medicalEmergency": {
+      "text": "This sounds like it may need urgent medical attention. Please:\n\n• Call 999 for emergency services\n• Contact your GP urgently\n• Visit A&E if symptoms are severe\n\nI can provide general health information, but I cannot assess medical emergencies. Please seek immediate medical help.",
+      "suggestedActions": ["Call 999", "Contact GP", "Find A&E"]
+    },
+    "general": {
+      "text": "I need to direct you to speak with a healthcare professional about this. Please contact:\n\n• Your GP\n• The Eve Appeal Nurse Line\n• NHS 111 for non-emergency health advice\n\nI'm here to provide general information, but this needs professional guidance.",
+      "suggestedActions": ["Contact GP", "Eve Appeal Nurses", "Call NHS 111"]
+    }
+  },
+  "compliance": {
+    "mhra": {
+      "enabled": true,
+      "disclaimer": "This information is for educational purposes only and is not intended as medical advice. Always consult with healthcare professionals for medical guidance."
+    },
+    "sourceAttribution": {
+      "required": true,
+      "format": "citation"
+    },
+    "dataProtection": {
+      "logConversations": false,
+      "retainPersonalInfo": false,
+      "anonymizeData": true
+    }
+  }
+}
