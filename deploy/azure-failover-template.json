@@ -1,0 +1,254 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "UK West",
+      "allowedValues": [
+        "UK West",
+        "UK South",
+        "West Europe",
+        "North Europe"
+      ],
+      "metadata": {
+        "description": "Location for secondary Azure OpenAI service"
+      }
+    },
+    "openAIServiceName": {
+      "type": "string",
+      "defaultValue": "askeve-failover-ukwest",
+      "metadata": {
+        "description": "Name of the secondary Azure OpenAI service"
+      }
+    },
+    "modelDeploymentName": {
+      "type": "string",
+      "defaultValue": "gpt-4o-mini-deployment",
+      "metadata": {
+        "description": "Name of the GPT-4o-mini model deployment"
+      }
+    },
+    "sku": {
+      "type": "string",
+      "defaultValue": "S0",
+      "allowedValues": [
+        "F0",
+        "S0"
+      ],
+      "metadata": {
+        "description": "SKU for Azure OpenAI service"
+      }
+    },
+    "keyVaultName": {
+      "type": "string",
+      "defaultValue": "askeve-failover-kv",
+      "metadata": {
+        "description": "Name of the Key Vault for storing secrets"
+      }
+    },
+    "logAnalyticsWorkspaceName": {
+      "type": "string",
+      "defaultValue": "askeve-failover-logs",
+      "metadata": {
+        "description": "Name of the Log Analytics workspace"
+      }
+    },
+    "applicationInsightsName": {
+      "type": "string",
+      "defaultValue": "askeve-failover-insights",
+      "metadata": {
+        "description": "Name of the Application Insights instance"
+      }
+    }
+  },
+  "variables": {
+    "keyVaultSku": "standard"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('openAIServiceName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('sku')]"
+      },
+      "kind": "OpenAI",
+      "properties": {
+        "customSubDomainName": "[parameters('openAIServiceName')]",
+        "publicNetworkAccess": "Enabled",
+        "networkAcls": {
+          "defaultAction": "Allow"
+        }
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2023-05-01",
+      "name": "[concat(parameters('openAIServiceName'), '/', parameters('modelDeploymentName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))]"
+      ],
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "gpt-4o-mini",
+          "version": "2024-07-18"
+        },
+        "scaleSettings": {
+          "scaleType": "Standard"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2023-02-01",
+      "name": "[parameters('keyVaultName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "family": "A",
+          "name": "[variables('keyVaultSku')]"
+        },
+        "tenantId": "[subscription().tenantId]",
+        "accessPolicies": [
+          {
+            "tenantId": "[subscription().tenantId]",
+            "objectId": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName')), '2023-05-01', 'Full').identity.principalId]",
+            "permissions": {
+              "keys": [],
+              "secrets": [
+                "get",
+                "list"
+              ],
+              "certificates": []
+            }
+          }
+        ],
+        "enabledForDeployment": false,
+        "enabledForTemplateDeployment": true,
+        "enabledForDiskEncryption": false,
+        "enableRbacAuthorization": false,
+        "enableSoftDelete": true,
+        "softDeleteRetentionInDays": 90,
+        "enablePurgeProtection": true
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('keyVaultName'), '/openai-api-key')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))]"
+      ],
+      "properties": {
+        "value": "[listKeys(resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName')), '2023-05-01').key1]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('keyVaultName'), '/openai-endpoint')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))]"
+      ],
+      "properties": {
+        "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))).endpoint]"
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2022-10-01",
+      "name": "[parameters('logAnalyticsWorkspaceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 90
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[parameters('applicationInsightsName')]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+      ],
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/providers/diagnosticSettings",
+      "apiVersion": "2021-05-01-preview",
+      "name": "[concat(parameters('openAIServiceName'), '/Microsoft.Insights/failover-diagnostics')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))]",
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+      ],
+      "properties": {
+        "workspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
+        "logs": [
+          {
+            "categoryGroup": "allLogs",
+            "enabled": true,
+            "retentionPolicy": {
+              "enabled": true,
+              "days": 90
+            }
+          }
+        ],
+        "metrics": [
+          {
+            "category": "AllMetrics",
+            "enabled": true,
+            "retentionPolicy": {
+              "enabled": true,
+              "days": 90
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "outputs": {
+    "openAIServiceEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))).endpoint]"
+    },
+    "openAIServiceName": {
+      "type": "string",
+      "value": "[parameters('openAIServiceName')]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "value": "[parameters('keyVaultName')]"
+    },
+    "deploymentName": {
+      "type": "string",
+      "value": "[parameters('modelDeploymentName')]"
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))).customerId]"
+    },
+    "applicationInsightsInstrumentationKey": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Insights/components', parameters('applicationInsightsName'))).InstrumentationKey]"
+    },
+    "applicationInsightsConnectionString": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Insights/components', parameters('applicationInsightsName'))).ConnectionString]"
+    }
+  }
+}

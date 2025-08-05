@@ -6,13 +6,16 @@ import {
   SearchResponse, 
   BotDisclosure 
 } from '../types';
+import { FailoverManager, FailoverResult } from '../services/FailoverManager';
 
 export class AskEveBot {
   private readonly options: AgentOptions;
   private readonly botDisclosure: BotDisclosure;
+  private readonly failoverManager?: FailoverManager;
 
   constructor(options: AgentOptions) {
     this.options = options;
+    this.failoverManager = options.failoverManager;
     this.botDisclosure = {
       text: "Hello, I'm Ask Eve Assist - a digital assistant here to help you find information about gynaecological health. I'm not a medical professional or nurse, but I can help you access trusted information from The Eve Appeal.",
       followUp: "How can I help you today?",
@@ -47,31 +50,63 @@ export class AskEveBot {
   }
 
   private async handleEscalation(context: MessageContext, safetyResult: SafetyResult): Promise<void> {
-    let escalationResponse: AgentResponse;
+    // Try to use failover manager for enhanced crisis response if available
+    if (this.failoverManager) {
+      try {
+        const failoverResult = await this.failoverManager.makeRequest(
+          context.message.text,
+          { type: 'crisis' }
+        );
 
+        if (failoverResult.success && failoverResult.response) {
+          // Use AI-enhanced crisis response but maintain safety checks
+          const aiResponse = failoverResult.response.content;
+          const escalationResponse = this.buildEnhancedCrisisResponse(aiResponse, safetyResult);
+          await context.send(escalationResponse);
+          return;
+        }
+      } catch (error) {
+        console.error('Failover manager error during crisis response:', error);
+        // Fall through to default crisis response
+      }
+    }
+
+    // Default crisis response (when failover is unavailable or fails)
+    const escalationResponse = this.buildDefaultCrisisResponse(safetyResult);
+    await context.send(escalationResponse);
+  }
+
+  private buildEnhancedCrisisResponse(aiResponse: string, safetyResult: SafetyResult): AgentResponse {
+    // Ensure AI response still contains emergency contacts and safety information
+    const baseResponse = this.buildDefaultCrisisResponse(safetyResult);
+    
+    // Combine AI response with mandatory safety information
+    return {
+      text: `${aiResponse}\n\n${baseResponse.text}`,
+      suggestedActions: baseResponse.suggestedActions
+    };
+  }
+
+  private buildDefaultCrisisResponse(safetyResult: SafetyResult): AgentResponse {
     switch (safetyResult.escalationType) {
       case 'self_harm':
-        escalationResponse = {
+        return {
           text: "I'm concerned about what you've shared. If you're having thoughts of self-harm, please reach out for urgent support:\n\n• Samaritans: 116 123 (free, 24/7)\n• Text SHOUT to 85258\n• Emergency services: 999\n\nYour safety and wellbeing matter. Please speak to someone who can help.",
           suggestedActions: ["Call Samaritans", "Emergency Services", "Text SHOUT"]
         };
-        break;
 
       case 'medical_emergency':
-        escalationResponse = {
+        return {
           text: "This sounds like it may need urgent medical attention. Please:\n\n• Call 999 for emergency services\n• Contact your GP urgently\n• Visit A&E if symptoms are severe\n\nI can provide general health information, but I cannot assess medical emergencies. Please seek immediate medical help.",
           suggestedActions: ["Call 999", "Contact GP", "Find A&E"]
         };
-        break;
 
       default:
-        escalationResponse = {
+        return {
           text: "I need to direct you to speak with a healthcare professional about this. Please contact:\n\n• Your GP\n• The Eve Appeal Nurse Line\n• NHS 111 for non-emergency health advice\n\nI'm here to provide general information, but this needs professional guidance.",
           suggestedActions: ["Contact GP", "Eve Appeal Nurses", "Call NHS 111"]
         };
     }
-
-    await context.send(escalationResponse);
   }
 
   private async handleNormalQuery(context: MessageContext): Promise<void> {
@@ -126,6 +161,28 @@ export class AskEveBot {
   }
 
   private async handleNoContentFound(context: MessageContext): Promise<void> {
+    // Try to use failover manager for general information when content not found
+    if (this.failoverManager) {
+      try {
+        const failoverResult = await this.failoverManager.makeRequest(
+          context.message.text,
+          { type: 'general' }
+        );
+
+        if (failoverResult.success && failoverResult.response) {
+          // Use AI response but ensure it includes appropriate disclaimers
+          const aiResponse = failoverResult.response.content;
+          const enhancedResponse = this.buildEnhancedGeneralResponse(aiResponse);
+          await context.send(enhancedResponse);
+          return;
+        }
+      } catch (error) {
+        console.error('Failover manager error during general response:', error);
+        // Fall through to default response
+      }
+    }
+
+    // Default response when failover is unavailable or fails
     const response: AgentResponse = {
       text: "I don't have specific information about that topic in my knowledge base. For personalized health advice, I'd recommend:\n\n• Speaking to your GP\n• Contacting The Eve Appeal nurse line\n• Calling NHS 111 for health guidance\n\nIs there something else about gynaecological health I can help you find information about?",
       suggestedActions: [
@@ -137,6 +194,20 @@ export class AskEveBot {
     };
 
     await context.send(response);
+  }
+
+  private buildEnhancedGeneralResponse(aiResponse: string): AgentResponse {
+    // Ensure AI response includes appropriate medical disclaimers
+    const disclaimer = "\n\n*Please note: This is general health information only and should not replace professional medical advice. Always consult your healthcare provider for medical concerns.*";
+    
+    return {
+      text: aiResponse + disclaimer,
+      suggestedActions: [
+        "Contact GP",
+        "Eve Appeal Nurses",
+        "NHS 111"
+      ]
+    };
   }
 
   private async handleMissingSourceUrl(context: MessageContext, _searchResponse: SearchResponse): Promise<void> {
@@ -179,15 +250,43 @@ export class AskEveBot {
   private async handleError(context: MessageContext, error: unknown): Promise<void> {
     console.error('Bot error:', error);
     
-    const response: AgentResponse = {
-      text: "I'm sorry, I'm experiencing technical difficulties at the moment. Please try again in a few moments.\n\nIf you need immediate health information, please:\n• Contact your GP\n• Call NHS 111\n• Visit The Eve Appeal website directly",
-      suggestedActions: [
-        "Try again",
-        "Contact GP", 
-        "Visit Eve Appeal"
-      ]
-    };
+    // Check if this might be a failover system failure
+    const isFailoverRelated = this.isFailoverError(error);
+    
+    let response: AgentResponse;
+    
+    if (isFailoverRelated) {
+      response = {
+        text: "I'm experiencing some technical difficulties with my AI systems, but I'm still here to help with trusted health information. Please try asking your question again, or I can direct you to reliable health resources.\n\nFor immediate health concerns, please:\n• Contact your GP\n• Call NHS 111\n• Visit The Eve Appeal website directly",
+        suggestedActions: [
+          "Try again",
+          "Contact GP", 
+          "Visit Eve Appeal",
+          "NHS 111"
+        ]
+      };
+    } else {
+      response = {
+        text: "I'm sorry, I'm experiencing technical difficulties at the moment. Please try again in a few moments.\n\nIf you need immediate health information, please:\n• Contact your GP\n• Call NHS 111\n• Visit The Eve Appeal website directly",
+        suggestedActions: [
+          "Try again",
+          "Contact GP", 
+          "Visit Eve Appeal"
+        ]
+      };
+    }
 
     await context.send(response);
+  }
+
+  private isFailoverError(error: unknown): boolean {
+    if (error instanceof Error) {
+      const errorMessage = error.message.toLowerCase();
+      return errorMessage.includes('failover') || 
+             errorMessage.includes('circuit breaker') ||
+             errorMessage.includes('provider') ||
+             errorMessage.includes('tier');
+    }
+    return false;
   }
 }

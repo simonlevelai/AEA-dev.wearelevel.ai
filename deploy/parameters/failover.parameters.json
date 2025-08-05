@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "UK West"
+    },
+    "openAIServiceName": {
+      "value": "askeve-failover-ukwest"
+    },
+    "modelDeploymentName": {
+      "value": "gpt-4o-mini-deployment"
+    },
+    "sku": {
+      "value": "S0"
+    },
+    "keyVaultName": {
+      "value": "askeve-failover-kv"
+    },
+    "logAnalyticsWorkspaceName": {
+      "value": "askeve-failover-logs"
+    },
+    "applicationInsightsName": {
+      "value": "askeve-failover-insights"
+    }
+  }
+}

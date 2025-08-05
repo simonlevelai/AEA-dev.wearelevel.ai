@@ -1,0 +1,105 @@
+{
+  "failover": {
+    "slaLimitMs": 3000,
+    "maxRetries": 3,
+    "circuitBreakerThreshold": 5,
+    "circuitBreakerResetTimeout": 30000,
+    "emergencyResponsesEnabled": true,
+    "slaMonitoringEnabled": true
+  },
+  "providers": {
+    "primary": {
+      "name": "openai-gpt4o-mini",
+      "type": "openai",
+      "priority": 1,
+      "model": "gpt-4o-mini",
+      "timeout": 5000,
+      "retries": 3,
+      "region": "us-east-1",
+      "healthCheckInterval": 60000
+    },
+    "secondary": {
+      "name": "azure-openai-uk-west",
+      "type": "azure-openai",
+      "priority": 2,
+      "model": "gpt-4o-mini",
+      "deployment": "gpt-4o-mini-deployment",
+      "endpoint": "https://askeve-ukwest.openai.azure.com",
+      "region": "UK West",
+      "timeout": 5000,
+      "retries": 3,
+      "healthCheckInterval": 60000
+    },
+    "tertiary": {
+      "name": "anthropic-claude-3.5-sonnet",
+      "type": "anthropic",
+      "priority": 3,
+      "model": "claude-3-5-sonnet-20241022",
+      "timeout": 5000,
+      "retries": 3,
+      "region": "us-east-1",
+      "healthCheckInterval": 60000
+    },
+    "emergency": {
+      "name": "emergency-cached-responses",
+      "type": "emergency",
+      "priority": 4,
+      "timeout": 1000,
+      "retries": 1,
+      "healthCheckInterval": 30000,
+      "responses": {
+        "crisis": {
+          "selfHarm": "I'm very concerned about what you've shared. Your safety and wellbeing are the most important things right now.\n\n**Immediate support is available:**\n• **Samaritans: 116 123** (free, 24/7, confidential)\n• **Crisis Text Line: Text SHOUT to 85258**\n• **Emergency Services: 999** (if in immediate danger)\n\nYou don't have to go through this alone. These services are staffed by trained professionals who understand what you're going through and want to help.\n\n*This is an automated emergency response. Please contact a healthcare professional or emergency services for immediate support.*",
+          "mentalHealth": "I'm deeply concerned about what you've told me. Please reach out for help right now:\n\n**Urgent support:**\n• **Call 999** if you're in immediate danger\n• **Samaritans: 116 123** (free, 24/7)\n• **Crisis Text Line: Text SHOUT to 85258**\n• **Go to your nearest A&E**\n\nYour life has value and there are people who want to help you through this difficult time.\n\n*This is an automated emergency response. Please seek immediate professional help.*"
+        },
+        "medicalEmergency": {
+          "severe": "This sounds like it could be a serious medical emergency. Please:\n\n**Take immediate action:**\n• **Call 999 for emergency services**\n• **Go to your nearest A&E department**\n• **Don't delay - seek medical attention now**\n\nIf symptoms are severe (severe pain, heavy bleeding, difficulty breathing, chest pain), this needs urgent medical assessment.\n\n*This is an automated emergency response. I cannot assess medical emergencies - please seek immediate medical help.*",
+          "urgent": "These symptoms sound concerning and may need urgent medical attention:\n\n**Next steps:**\n• **Contact your GP urgently** (same day appointment)\n• **Call NHS 111** for immediate advice\n• **Go to A&E** if symptoms worsen\n• **Call 999** if you feel seriously unwell\n\nDon't wait - it's better to seek help early for any concerning symptoms.\n\n*This is an automated emergency response. Please contact a healthcare professional for proper medical assessment.*"
+        },
+        "general": "I'm experiencing technical difficulties and can't provide a complete response right now.\n\n**For health information and support:**\n• **Contact your GP** for medical concerns\n• **The Eve Appeal Nurse Line** for gynaecological health questions\n• **NHS 111** for non-emergency health advice\n• **Visit eveappeal.org.uk** for trusted health information\n\n*This is an automated response. Please contact a healthcare professional for medical advice.*"
+      }
+    }
+  },
+  "monitoring": {
+    "alertThresholds": {
+      "slaViolationThreshold": 2,
+      "providerFailureThreshold": 3,
+      "responseTimeThreshold": 5000,
+      "alertCooldownMs": 300000
+    },
+    "escalation": {
+      "enableEmailAlerts": true,
+      "enableTeamsAlerts": true,
+      "criticalAlertEscalation": true,
+      "teamsWebhookUrl": "${TEAMS_WEBHOOK_URL}",
+      "emailRecipients": [
+        "devops@wearelevel.ai",
+        "support@eveappeal.org.uk"
+      ]
+    },
+    "dashboardRefreshMs": 30000,
+    "metricsRetentionDays": 30
+  },
+  "security": {
+    "secretRotationDays": 90,
+    "requestSizeLimitMB": 2,
+    "rateLimiting": {
+      "requestsPerMinute": 100,
+      "burstLimit": 200,
+      "progressiveDelayMs": [1000, 2000, 5000, 10000]
+    },
+    "ddosProtection": {
+      "enabled": true,
+      "maxRequestsPerSecond": 10,
+      "blockDurationMinutes": 15
+    }
+  },
+  "compliance": {
+    "dataResidency": "UK",
+    "auditLogRetentionDays": 365,
+    "mhraCompliance": true,
+    "gdprCompliance": true,
+    "encryptionAtRest": true,
+    "encryptionInTransit": true
+  }
+}

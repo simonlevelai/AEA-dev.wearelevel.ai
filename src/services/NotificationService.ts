@@ -1,5 +1,7 @@
 import { NotificationPayload, NotificationPayloadSchema } from '../types/safety';
 import { Logger } from '../utils/logger';
+import { EmailNotificationService, EmailDeliveryResult } from './EmailNotificationService';
+import { TeamsNotificationService, TeamsDeliveryResult } from './TeamsNotificationService';
 
 export interface TeamsWebhookPayload {
   '@type': string;
@@ -25,22 +27,55 @@ export interface TeamsWebhookPayload {
   }>;
 }
 
+export interface DualEscalationResult {
+  teamsDelivered: boolean;
+  emailDelivered: boolean;
+  overallSuccess: boolean;
+  emailResult?: EmailDeliveryResult;
+  teamsResult?: TeamsDeliveryResult;
+  failures: string[];
+  retryCount: number;
+  deliveryConfirmation: {
+    escalationId: string;
+    teamsMessageId?: string;
+    emailMessageId?: string;
+    deliveredAt: number;
+    channels: Array<'teams' | 'email'>;
+  };
+}
+
+export interface DualDeliveryStatus {
+  escalationId: string;
+  teamsStatus: 'sent' | 'failed' | 'unknown';
+  emailStatus: 'sent' | 'delivered' | 'bounced' | 'failed' | 'unknown';
+  overallStatus: 'sent' | 'partial' | 'failed';
+  deliveredAt?: number;
+  lastChecked: number;
+}
+
 export class NotificationService {
   private webhookUrl: string;
   private maxRetries: number;
   private retryDelay: number;
   private logger: Logger;
+  private emailService?: EmailNotificationService;
+  private teamsService?: TeamsNotificationService;
+  private deliveryStatuses: Map<string, DualDeliveryStatus> = new Map();
 
   constructor(
     webhookUrl: string,
     logger: Logger,
     maxRetries: number = 3,
-    retryDelay: number = 30000
+    retryDelay: number = 30000,
+    emailService?: EmailNotificationService,
+    teamsService?: TeamsNotificationService
   ) {
     this.webhookUrl = webhookUrl;
     this.logger = logger;
     this.maxRetries = maxRetries;
     this.retryDelay = retryDelay;
+    this.emailService = emailService;
+    this.teamsService = teamsService;
   }
 
   async sendCrisisAlert(payload: NotificationPayload): Promise<void> {
@@ -252,37 +287,213 @@ export class NotificationService {
     }
   }
 
-  async testConnection(): Promise<boolean> {
+  async sendDualCrisisAlert(payload: NotificationPayload): Promise<DualEscalationResult> {
+    const startTime = Date.now();
+    
     try {
-      const testPayload: TeamsWebhookPayload = {
-        '@type': 'MessageCard',
-        '@context': 'http://schema.org/extensions',
-        themeColor: '00CC00',
-        summary: 'Ask Eve Assist - Connection Test',
-        sections: [
-          {
-            activityTitle: '✅ Connection Test',
-            activitySubtitle: 'Ask Eve Assist Safety System',
-            facts: [
-              {
-                name: 'Status',
-                value: 'Testing webhook connection'
-              },
-              {
-                name: 'Timestamp',
-                value: new Date().toISOString()
-              }
-            ],
-            markdown: true
-          }
-        ]
+      const validatedPayload = NotificationPayloadSchema.parse(payload);
+      
+      let teamsDelivered = false;
+      let emailDelivered = false;
+      let emailResult: EmailDeliveryResult | undefined;
+      let teamsResult: TeamsDeliveryResult | undefined;
+      const failures: string[] = [];
+      let retryCount = 0;
+
+      // Send to Teams and Email concurrently with retry logic
+      const teamsPromise = this.teamsService 
+        ? this.teamsService.sendCrisisAlert(validatedPayload)
+            .then((result) => {
+              teamsDelivered = true;
+              teamsResult = result;
+              retryCount = Math.max(retryCount, result.retryCount);
+            })
+            .catch((error) => {
+              failures.push(`Teams: ${error.message}`);
+            })
+        : Promise.resolve().then(() => {
+            this.logger.warn('Teams service not available for dual escalation', {
+              escalationId: validatedPayload.escalationId
+            });
+            failures.push('Teams service not configured');
+          });
+
+      const emailPromise = this.emailService 
+        ? this.emailService.sendCrisisAlert(validatedPayload)
+            .then((result) => {
+              emailDelivered = true;
+              emailResult = result;
+              retryCount = Math.max(retryCount, result.retryCount);
+            })
+            .catch((error) => {
+              failures.push(`Email: ${error.message}`);
+            })
+        : Promise.resolve().then(() => {
+            this.logger.warn('Email service not available for dual escalation', {
+              escalationId: validatedPayload.escalationId
+            });
+            failures.push('Email service not configured');
+          });
+
+      // Wait for both to complete
+      await Promise.all([teamsPromise, emailPromise]);
+
+      const overallSuccess = teamsDelivered || emailDelivered;
+      const deliveredAt = Date.now();
+      
+      // Track delivery status
+      this.trackDualDeliveryStatus({
+        escalationId: validatedPayload.escalationId,
+        teamsStatus: teamsDelivered ? 'sent' : 'failed',
+        emailStatus: emailDelivered ? 'sent' : 'failed',
+        overallStatus: overallSuccess ? (teamsDelivered && emailDelivered ? 'sent' : 'partial') : 'failed',
+        deliveredAt: overallSuccess ? deliveredAt : undefined,
+        lastChecked: Date.now()
+      });
+
+      const result: DualEscalationResult = {
+        teamsDelivered,
+        emailDelivered,
+        overallSuccess,
+        emailResult,
+        teamsResult,
+        failures,
+        retryCount,
+        deliveryConfirmation: {
+          escalationId: validatedPayload.escalationId,
+          teamsMessageId: teamsResult?.messageId,
+          emailMessageId: emailResult?.messageId,
+          deliveredAt,
+          channels: [
+            ...(teamsDelivered ? ['teams' as const] : []),
+            ...(emailDelivered ? ['email' as const] : [])
+          ]
+        }
       };
 
-      await this.sendToTeams(testPayload);
-      this.logger.info('Webhook connection test successful');
-      return true;
+      if (overallSuccess) {
+        if (failures.length > 0) {
+          this.logger.warn('Partial failure in dual crisis alert', {
+            escalationId: validatedPayload.escalationId,
+            teamsDelivered,
+            emailDelivered,
+            failures,
+            responseTime: deliveredAt - startTime
+          });
+        } else {
+          this.logger.info('Dual crisis alert sent successfully', {
+            escalationId: validatedPayload.escalationId,
+            teamsDelivered,
+            emailDelivered,
+            responseTime: deliveredAt - startTime
+          });
+        }
+        
+        return result;
+      } else {
+        this.logger.error('CRITICAL: All dual crisis alert channels failed', {
+          escalationId: validatedPayload.escalationId,
+          failures,
+          responseTime: deliveredAt - startTime
+        });
+        
+        throw new Error(`All notification channels failed: ${failures.join(', ')}`);
+      }
+
     } catch (error) {
-      this.logger.error('Webhook connection test failed', { error });
+      this.logger.error('Dual crisis alert failed', { 
+        escalationId: payload.escalationId, 
+        error 
+      });
+      throw error;
+    }
+  }
+
+  async getDualDeliveryStatus(escalationId: string): Promise<DualDeliveryStatus> {
+    const status = this.deliveryStatuses.get(escalationId);
+    if (!status) {
+      throw new Error(`No delivery status found for escalation ID: ${escalationId}`);
+    }
+
+    // Update email status if email service is available
+    if (this.emailService && status.emailStatus === 'sent') {
+      try {
+        const deliveryConfirmation = this.deliveryStatuses.get(escalationId);
+        if (deliveryConfirmation?.emailStatus === 'sent') {
+          // In a real implementation, we would check email delivery status
+          // For now, we'll keep the existing status
+        }
+      } catch (error) {
+        this.logger.debug('Could not update email delivery status', { 
+          escalationId, 
+          error 
+        });
+      }
+    }
+
+    status.lastChecked = Date.now();
+    return { ...status };
+  }
+
+
+  private trackDualDeliveryStatus(status: DualDeliveryStatus): void {
+    this.deliveryStatuses.set(status.escalationId, status);
+    
+    // Clean up old delivery statuses (keep for 24 hours)
+    const cutoff = Date.now() - (24 * 60 * 60 * 1000);
+    for (const [escalationId, deliveryStatus] of this.deliveryStatuses.entries()) {
+      if (deliveryStatus.lastChecked < cutoff) {
+        this.deliveryStatuses.delete(escalationId);
+      }
+    }
+  }
+
+  async testConnection(): Promise<boolean> {
+    try {
+      let teamsConnectionWorking = true;
+      let emailConnectionWorking = true;
+
+      // Test Teams connection if service is available
+      if (this.teamsService) {
+        try {
+          teamsConnectionWorking = await this.teamsService.testConnection();
+        } catch (error) {
+          this.logger.error('Teams service connection test failed', { error });
+          teamsConnectionWorking = false;
+        }
+      } else {
+        this.logger.warn('Teams service not configured for connection test');
+      }
+
+      // Test Email connection if service is available
+      if (this.emailService) {
+        try {
+          emailConnectionWorking = await this.emailService.testConnection();
+        } catch (error) {
+          this.logger.error('Email service connection test failed', { error });
+          emailConnectionWorking = false;
+        }
+      } else {
+        this.logger.warn('Email service not configured for connection test');
+      }
+
+      const overallSuccess = teamsConnectionWorking && emailConnectionWorking;
+      
+      if (overallSuccess) {
+        this.logger.info('All notification services connection test successful', {
+          teamsWorking: teamsConnectionWorking,
+          emailWorking: emailConnectionWorking
+        });
+      } else {
+        this.logger.warn('Some notification services connection test failed', {
+          teamsWorking: teamsConnectionWorking,
+          emailWorking: emailConnectionWorking
+        });
+      }
+      
+      return overallSuccess;
+    } catch (error) {
+      this.logger.error('Notification services connection test failed', { error });
       return false;
     }
   }

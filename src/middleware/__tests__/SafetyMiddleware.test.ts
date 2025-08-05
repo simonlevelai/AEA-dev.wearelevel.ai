@@ -1,14 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
-import { SafetyMiddleware, SafetyMiddlewareRequest } from '../../src/middleware/SafetyMiddleware';
-import { EscalationService } from '../../src/services/EscalationService';
-import { NotificationService } from '../../src/services/NotificationService';
-import { Logger } from '../../src/utils/logger';
-import { SafetyResult, CrisisResponse, EscalationEvent } from '../../src/types/safety';
+import { SafetyMiddleware, SafetyMiddlewareRequest } from '../SafetyMiddleware';
+import { EscalationService } from '../../services/EscalationService';
+import { NotificationService } from '../../services/NotificationService';
+import { Logger } from '../../utils/logger';
+import { SafetyResult, CrisisResponse, EscalationEvent } from '../../types/safety';
 
 // Mock dependencies
-jest.mock('../../src/services/EscalationService');
-jest.mock('../../src/services/NotificationService');
-jest.mock('../../src/utils/logger');
+jest.mock('../../services/EscalationService');
+jest.mock('../../services/NotificationService');
+jest.mock('../../utils/logger');
 
 const MockEscalationService = EscalationService as jest.MockedClass<typeof EscalationService>;
 const MockNotificationService = NotificationService as jest.MockedClass<typeof NotificationService>;

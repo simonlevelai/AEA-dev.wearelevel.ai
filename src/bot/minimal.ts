@@ -2,8 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import { config } from 'dotenv';
 import { startServer } from '@microsoft/agents-hosting-express';
-import { AgentsSDKBot } from './bot/AgentsSDKBot';
-import { SafetyService, ContentService } from './types';
+import { AgentsSDKBot } from './AgentsSDKBot';
+import { SafetyService, ContentService } from '../types';
 
 // Load environment variables
 config();

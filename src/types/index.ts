@@ -53,6 +53,7 @@ export type AgentOptions = {
   botName: string;
   safetyService: SafetyService;
   contentService: ContentService;
+  failoverManager?: import('../services/FailoverManager').FailoverManager;
 };
 
 export interface SafetyService {

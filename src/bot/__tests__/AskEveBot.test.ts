@@ -1,5 +1,6 @@
 import { AskEveBot } from '../AskEveBot';
 import { MessageContext, SafetyService, ContentService, SafetyResult, SearchResponse } from '../../types';
+import { FailoverManager, FailoverResult } from '../../services/FailoverManager';
 
 // Mock services
 const mockSafetyService: SafetyService = {
@@ -9,6 +10,13 @@ const mockSafetyService: SafetyService = {
 const mockContentService: ContentService = {
   searchContent: jest.fn()
 };
+
+const mockFailoverManager: FailoverManager = {
+  makeRequest: jest.fn(),
+  getHealthStatus: jest.fn(),
+  getFailoverMetrics: jest.fn(),
+  getTiers: jest.fn()
+} as any;
 
 const createMockContext = (text: string, hasHistory = true): MessageContext => ({
   message: {
@@ -299,6 +307,210 @@ describe('AskEveBot Core', () => {
       expect(context.send).toHaveBeenCalledWith(
         expect.objectContaining({
           text: expect.stringContaining('experiencing technical difficulties')
+        })
+      );
+    });
+  });
+
+  describe('Failover Integration', () => {
+    let botWithFailover: AskEveBot;
+    
+    beforeEach(() => {
+      botWithFailover = new AskEveBot({
+        botId: 'ask-eve-assist',
+        botName: 'Ask Eve Assist',
+        safetyService: mockSafetyService,
+        contentService: mockContentService,
+        failoverManager: mockFailoverManager
+      });
+    });
+
+    test('uses failover manager for crisis response generation', async () => {
+      const context = createMockContext('I want to harm myself');
+      
+      (mockSafetyService.analyzeMessage as jest.Mock).mockResolvedValue({
+        shouldEscalate: true,
+        severity: 'critical',
+        escalationType: 'self_harm'
+      } as SafetyResult);
+
+      (mockFailoverManager.makeRequest as jest.Mock).mockResolvedValue({
+        success: true,
+        response: {
+          content: 'Crisis response generated with AI assistance',
+          provider: 'openai'
+        },
+        provider: 'openai',
+        tier: 1,
+        responseTime: 1500,
+        slaViolation: false
+      } as FailoverResult);
+
+      await botWithFailover.handleUserMessage(context);
+
+      expect(mockFailoverManager.makeRequest).toHaveBeenCalledWith(
+        expect.stringContaining('harm myself'),
+        { type: 'crisis' }
+      );
+    });
+
+    test('maintains conversation context during provider failover', async () => {
+      const context = createMockContext('tell me about cervical cancer');
+      
+      (mockSafetyService.analyzeMessage as jest.Mock).mockResolvedValue({
+        shouldEscalate: false,
+        severity: 'low'
+      } as SafetyResult);
+
+      (mockContentService.searchContent as jest.Mock).mockResolvedValue({
+        found: false
+      } as SearchResponse);
+
+      // First provider fails, second succeeds
+      (mockFailoverManager.makeRequest as jest.Mock).mockResolvedValue({
+        success: true,
+        response: {
+          content: 'I found information about cervical cancer. However, I can only provide information from verified sources. Please contact your GP for personalized advice.',
+          provider: 'azure-openai'
+        },
+        provider: 'azure-openai',
+        tier: 2,
+        responseTime: 2800,
+        slaViolation: false,
+        failoverTime: 2800
+      } as FailoverResult);
+
+      await botWithFailover.handleUserMessage(context);
+
+      expect(mockFailoverManager.makeRequest).toHaveBeenCalledWith(
+        expect.stringContaining('cervical cancer'),
+        { type: 'general' }
+      );
+    });
+
+    test('handles complete failover system failure gracefully', async () => {
+      const context = createMockContext('I need help with symptoms');
+      
+      (mockSafetyService.analyzeMessage as jest.Mock).mockResolvedValue({
+        shouldEscalate: false,
+        severity: 'low'
+      } as SafetyResult);
+
+      (mockContentService.searchContent as jest.Mock).mockResolvedValue({
+        found: false
+      } as SearchResponse);
+
+      // All failover tiers fail
+      (mockFailoverManager.makeRequest as jest.Mock).mockResolvedValue({
+        success: false,
+        provider: 'none',
+        tier: 0,
+        responseTime: 5000,
+        slaViolation: true,
+        error: 'All failover tiers failed'
+      } as FailoverResult);
+
+      await botWithFailover.handleUserMessage(context);
+
+      // Should fall back to default no-content-found response when failover fails
+      expect(context.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: expect.stringContaining("don't have specific information"),
+          suggestedActions: expect.arrayContaining([
+            'Contact a nurse'
+          ])
+        })
+      );
+    });
+
+    test('preserves crisis detection during provider failures', async () => {
+      const context = createMockContext('severe bleeding emergency');
+      
+      (mockSafetyService.analyzeMessage as jest.Mock).mockResolvedValue({
+        shouldEscalate: true,
+        severity: 'critical',
+        escalationType: 'medical_emergency'
+      } as SafetyResult);
+
+      // Even if failover fails, crisis response should be provided
+      (mockFailoverManager.makeRequest as jest.Mock).mockResolvedValue({
+        success: false,
+        provider: 'none',
+        tier: 0,
+        responseTime: 5000,
+        slaViolation: true,
+        humanEscalation: true,
+        error: 'All failover tiers failed'
+      } as FailoverResult);
+
+      await botWithFailover.handleUserMessage(context);
+
+      // Should still provide crisis response even with failover failure
+      expect(context.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: expect.stringContaining('emergency services')
+        })
+      );
+    });
+
+    test('does not expose system failure details to users', async () => {
+      const context = createMockContext('general health question');
+      
+      (mockSafetyService.analyzeMessage as jest.Mock).mockResolvedValue({
+        shouldEscalate: false,
+        severity: 'low'
+      } as SafetyResult);
+
+      (mockContentService.searchContent as jest.Mock).mockResolvedValue({
+        found: false
+      } as SearchResponse);
+
+      (mockFailoverManager.makeRequest as jest.Mock).mockResolvedValue({
+        success: false,
+        provider: 'none',
+        tier: 0,
+        responseTime: 5000,
+        slaViolation: true,
+        error: 'Circuit breaker open for all providers'
+      } as FailoverResult);
+
+      await botWithFailover.handleUserMessage(context);
+
+      const response = (context.send as jest.Mock).mock.calls[0][0];
+      
+      // Should not contain technical error details
+      expect(response.text).not.toContain('circuit breaker');
+      expect(response.text).not.toContain('provider');
+      expect(response.text).not.toContain('tier');
+      expect(response.text).not.toContain('SLA');
+    });
+
+    test('handles failover system exceptions gracefully', async () => {
+      const context = createMockContext('I need support');
+      
+      (mockSafetyService.analyzeMessage as jest.Mock).mockResolvedValue({
+        shouldEscalate: false,
+        severity: 'low'
+      } as SafetyResult);
+
+      (mockContentService.searchContent as jest.Mock).mockResolvedValue({
+        found: false
+      } as SearchResponse);
+
+      // Failover manager throws an exception
+      (mockFailoverManager.makeRequest as jest.Mock).mockRejectedValue(
+        new Error('Failover manager connection timeout')
+      );
+
+      await botWithFailover.handleUserMessage(context);
+
+      // Should fall back to default response gracefully
+      expect(context.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: expect.stringContaining("don't have specific information"),
+          suggestedActions: expect.arrayContaining([
+            'Contact a nurse'
+          ])
         })
       );
     });
