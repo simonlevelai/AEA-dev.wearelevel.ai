@@ -9,7 +9,7 @@ import {
 import { DefaultAzureCredential } from '@azure/identity';
 import { ContentChunk, SearchConfig } from '../types/content';
 import { logger } from '../utils/logger';
-import searchSchema from '../../search-schema.json';
+import searchSchema from '../../config/search-schema.json';
 
 /**
  * Azure AI Search service wrapper

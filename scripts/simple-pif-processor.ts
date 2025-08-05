@@ -56,7 +56,7 @@ async function processPiFDocuments(): Promise<void> {
   console.log('🏥 Processing PiF Documents...');
   
   const documentsPath = path.join(__dirname, '../content/pif-documents');
-  const outputPath = path.join(__dirname, '../content/processed');
+  const outputPath = path.join(__dirname, '../data');
   
   // Ensure output directory exists
   await fs.mkdir(outputPath, { recursive: true });

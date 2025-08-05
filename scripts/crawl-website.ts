@@ -6,7 +6,7 @@ import { ValidationService } from '../src/services/ValidationService';
 import { SearchService } from '../src/services/SearchService';
 import { CrawlConfig, SearchConfig } from '../src/types/content';
 import { logger } from '../src/utils/logger';
-import crawlConfig from '../crawl-config.json';
+import crawlConfig from '../config/crawl-config.json';
 
 // Load environment variables
 dotenv.config();

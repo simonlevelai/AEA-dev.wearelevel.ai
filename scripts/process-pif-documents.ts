@@ -38,7 +38,7 @@ interface ProcessingStats {
 
 class PiFDocumentProcessor {
   private readonly documentsPath = path.join(__dirname, '../content/pif-documents');
-  private readonly outputPath = path.join(__dirname, '../content/processed');
+  private readonly outputPath = path.join(__dirname, '../data');
   // OpenAI client for future embedding generation
   // private readonly openai: OpenAI;
   
@@ -322,7 +322,7 @@ class PiFDocumentProcessor {
   }
 
   private async updateSourceUrlsMapping(chunks: ContentChunk[]): Promise<void> {
-    const sourceUrlsPath = path.join(__dirname, '../content/metadata/source-urls.json');
+    const sourceUrlsPath = path.join(__dirname, '../data/source-urls.json');
     
     // Group chunks by document
     const documentSources: any = {};
@@ -393,7 +393,7 @@ class PiFDocumentProcessor {
   }
 
   private async updateProcessingLog(stats: ProcessingStats): Promise<void> {
-    const logPath = path.join(__dirname, '../content/metadata/processing-log.json');
+    const logPath = path.join(__dirname, '../data/processing-log.json');
     
     const logEntry = {
       timestamp: new Date().toISOString(),

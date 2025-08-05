@@ -40,22 +40,22 @@ export class EscalationService {
   async initialize(): Promise<void> {
     try {
       // Load crisis triggers
-      const crisisPath = path.join(process.cwd(), 'crisis-triggers.json');
+      const crisisPath = path.join(process.cwd(), 'data/crisis-triggers.json');
       const crisisData = await fs.readFile(crisisPath, 'utf-8');
       this.crisisTriggers = JSON.parse(crisisData);
 
       // Load high concern triggers
-      const highConcernPath = path.join(process.cwd(), 'high-concern-triggers.json');
+      const highConcernPath = path.join(process.cwd(), 'data/high-concern-triggers.json');
       const highConcernData = await fs.readFile(highConcernPath, 'utf-8');
       this.highConcernTriggers = JSON.parse(highConcernData);
 
       // Load emotional support triggers
-      const emotionalPath = path.join(process.cwd(), 'emotional-support-triggers.json');
+      const emotionalPath = path.join(process.cwd(), 'data/emotional-support-triggers.json');
       const emotionalData = await fs.readFile(emotionalPath, 'utf-8');
       this.emotionalSupportTriggers = JSON.parse(emotionalData);
 
       // Load safety configuration
-      const configPath = path.join(process.cwd(), 'safety-config.json');
+      const configPath = path.join(process.cwd(), 'config/safety-config.json');
       const configData = await fs.readFile(configPath, 'utf-8');
       this.safetyConfig = JSON.parse(configData);
 
