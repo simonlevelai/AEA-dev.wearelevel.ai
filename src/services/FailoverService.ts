@@ -53,7 +53,7 @@ export class FailoverService {
 
   constructor(config: FailoverServiceConfig = {}) {
     this.config = {
-      configPath: config.configPath || 'config/failover-config.json',
+      configPath: config.configPath || 'failover-config.json',
       enableMonitoring: config.enableMonitoring ?? true,
       enableAlerts: config.enableAlerts ?? true,
       testMode: config.testMode ?? false,
@@ -367,7 +367,7 @@ export class FailoverService {
 
   private loadSafetyConfig() {
     try {
-      const safetyConfigPath = path.resolve('config/safety-config.json');
+      const safetyConfigPath = path.resolve('safety-config.json');
       return JSON.parse(fs.readFileSync(safetyConfigPath, 'utf8'));
     } catch (error) {
       logger.warn('Failed to load safety config, using defaults', {

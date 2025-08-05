@@ -461,7 +461,7 @@ class PiFDocumentProcessor {
     }
     
     console.log('\\n📋 Next Steps:');
-    console.log('   1. Review generated chunks in content/processed/pif-chunks.json');
+    console.log('   1. Review generated chunks in pif-chunks.json');
     console.log('   2. Run selective web crawler for live contact information');
     console.log('   3. Generate OpenAI embeddings for semantic search');
     console.log('   4. Upload to Azure AI Search free tier');
