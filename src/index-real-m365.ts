@@ -173,8 +173,9 @@ class AskEveAssistBot extends ActivityHandler {
         }
         
       } else {
-        // STEP 2: Normal Healthcare Information (MHRA Compliant)
-        await context.sendActivity(this.generateHealthcareResponse(messageText));
+        // STEP 2: Normal Healthcare Information with RAG Pipeline (MHRA Compliant)
+        const healthcareResponse = await this.generateHealthcareResponseWithRAG(messageText);
+        await context.sendActivity(healthcareResponse);
       }
 
       // Add to conversation history (keep last 10 messages)
@@ -287,9 +288,188 @@ The Eve Appeal is here for you too. Would you like me to help you find local men
   }
 
   /**
-   * Generate healthcare information response (MHRA compliant)
+   * Generate healthcare information response using RAG pipeline (MHRA compliant)
    */
-  private generateHealthcareResponse(message: string): string {
+  private async generateHealthcareResponseWithRAG(message: string): Promise<string> {
+    try {
+      this.logger.info('Starting RAG pipeline', { message });
+      
+      // Step 1: Search Azure AI Search for relevant PiF-approved content
+      const searchResults = await this.searchHealthcareContent(message);
+      this.logger.info('Search completed', { resultsCount: searchResults.length });
+      
+      // Step 2: Generate AI response using Azure OpenAI with retrieved context
+      const aiResponse = await this.generateAIResponse(message, searchResults);
+      this.logger.info('AI response generated successfully');
+      
+      return aiResponse;
+      
+    } catch (error) {
+      this.logger.error('RAG pipeline error, falling back to generic response', { 
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      return this.generateFallbackHealthcareResponse(message);
+    }
+  }
+
+  /**
+   * Extract key search terms from natural language queries
+   */
+  private extractSearchTerms(query: string): string {
+    // Remove question words and common phrases to get core medical terms
+    const questionWords = /\b(what|are|the|is|a|an|do|does|can|how|why|when|where|about|regarding|concerning)\b/gi;
+    const commonWords = /\b(of|for|with|in|on|at|to|from|by|and|or|but|if|than|as)\b/gi;
+    
+    let processed = query
+      .replace(questionWords, '')
+      .replace(commonWords, '')
+      .replace(/[^\w\s]/g, '') // Remove punctuation
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim()
+      .toLowerCase();
+
+    // If the processed query is too short, fall back to the original query
+    if (processed.length < 3) {
+      processed = query;
+    }
+
+    this.logger.info('Search term extraction', { 
+      original: query, 
+      extracted: processed 
+    });
+
+    return processed;
+  }
+
+  /**
+   * Search Azure AI Search for relevant healthcare content
+   */
+  private async searchHealthcareContent(query: string): Promise<any[]> {
+    const searchEndpoint = process.env.AZURE_SEARCH_ENDPOINT;
+    const searchApiKey = process.env.AZURE_SEARCH_API_KEY;
+    const indexName = process.env.AZURE_SEARCH_INDEX_NAME || 'ask-eve-content';
+
+    if (!searchEndpoint || !searchApiKey) {
+      throw new Error('Azure Search configuration missing');
+    }
+
+    const searchUrl = `${searchEndpoint}/indexes/${indexName}/docs/search?api-version=2023-11-01`;
+    
+    // Extract key terms from natural language queries for better search results
+    const extractedTerms = this.extractSearchTerms(query);
+    
+    const searchBody = {
+      search: extractedTerms,
+      top: 5,
+      select: "content,title,source",
+      searchMode: "any" // Use "any" for better natural language query handling
+    };
+
+    const response = await axios.post(searchUrl, searchBody, {
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': searchApiKey
+      },
+      timeout: 10000
+    });
+
+    return response.data.value || [];
+  }
+
+  /**
+   * Generate AI response using Azure OpenAI with healthcare context
+   */
+  private async generateAIResponse(query: string, searchResults: any[]): Promise<string> {
+    const openaiEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+    const openaiApiKey = process.env.AZURE_OPENAI_API_KEY;
+    const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || 'gpt-4o-mini';
+
+    this.logger.info('OpenAI configuration', { 
+      endpoint: openaiEndpoint,
+      hasApiKey: !!openaiApiKey,
+      deploymentName 
+    });
+
+    if (!openaiEndpoint || !openaiApiKey) {
+      throw new Error('Azure OpenAI configuration missing');
+    }
+
+    // If no search results, provide a basic response
+    if (searchResults.length === 0) {
+      this.logger.warn('No search results found, providing basic response');
+      return `I understand you're asking about "${query}". While I don't have specific information available right now, I recommend consulting your GP or healthcare provider for medical concerns.
+
+**Important:** I provide information only - not medical advice. Always consult your GP for medical concerns.
+
+*Information from The Eve Appeal - the UK's gynaecological cancer charity*
+*For support: https://eveappeal.org.uk*`;
+    }
+
+    // Build context from search results
+    const context = searchResults
+      .map(result => `Source: ${result.source}\nContent: ${result.content}`)
+      .join('\n\n');
+
+    const systemPrompt = `You are Ask Eve Assist, providing trusted gynaecological health information from The Eve Appeal, the UK's gynaecological cancer charity.
+
+IMPORTANT GUIDELINES:
+- Provide information only - NEVER give medical advice or diagnosis
+- Always recommend consulting a GP for medical concerns
+- Use only the provided context from PiF-approved sources
+- Include source attribution for all information
+- For emergencies, direct to call 999
+- Be empathetic and supportive
+- Focus on gynaecological health conditions
+
+Context from PiF-approved sources:
+${context}`;
+
+    const openaiUrl = `${openaiEndpoint}openai/deployments/${deploymentName}/chat/completions?api-version=2024-06-01`;
+    
+    this.logger.info('Calling Azure OpenAI', { url: openaiUrl });
+
+    const requestBody = {
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: query }
+      ],
+      max_tokens: 500,
+      temperature: 0.3
+    };
+
+    try {
+      const response = await axios.post(openaiUrl, requestBody, {
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': openaiApiKey
+        },
+        timeout: 15000
+      });
+
+      const aiResponse = response.data.choices[0]?.message?.content || 'I apologize, but I was unable to generate a response.';
+      
+      // Add standard disclaimer
+      return `${aiResponse}
+
+**Important:** I provide information only - not medical advice. Always consult your GP for medical concerns.
+
+*Information from The Eve Appeal - the UK's gynaecological cancer charity*
+*For support: https://eveappeal.org.uk*`;
+    
+    } catch (error) {
+      this.logger.error('Azure OpenAI call failed', { 
+        error: error instanceof Error ? error.message : error,
+        url: openaiUrl
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Fallback healthcare response when RAG pipeline fails
+   */
+  private generateFallbackHealthcareResponse(message: string): string {
     const messagePreview = message.length > 50 ? `${message.substring(0, 50)}...` : message;
     
     return `Thank you for reaching out about "${messagePreview}"
