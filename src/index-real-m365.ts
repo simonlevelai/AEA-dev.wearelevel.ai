@@ -12,7 +12,8 @@ import {
   CloudAdapter,
   ConversationState,
   UserState,
-  MemoryStorage
+  MemoryStorage,
+  loadAuthConfigFromEnv
 } from '@microsoft/agents-hosting';
 import express from 'express';
 import cors from 'cors';
@@ -20,6 +21,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import * as dotenv from 'dotenv';
 import axios from 'axios';
+import path from 'path';
 
 // Simple inline logger
 class SimpleLogger {
@@ -391,8 +393,9 @@ async function startRealM365AgentsServer(): Promise<void> {
   try {
     logger.info('🚀 Starting REAL Microsoft 365 Agents SDK server');
 
-    // Create cloud adapter for Microsoft integration
-    const adapter = new CloudAdapter();
+    // Create cloud adapter for Microsoft integration with authentication
+    const authConfig = loadAuthConfigFromEnv();
+    const adapter = new CloudAdapter(authConfig);
     
     // Create storage and state management
     const memoryStorage = new MemoryStorage();
@@ -414,6 +417,9 @@ async function startRealM365AgentsServer(): Promise<void> {
 
     // Create Express app with production security
     const app = express();
+    
+    // Trust Container Apps proxy for rate limiting and IP detection
+    app.set('trust proxy', 1);
     
     // Rate limiting - protect against abuse
     const limiter = rateLimit({
@@ -451,7 +457,7 @@ async function startRealM365AgentsServer(): Promise<void> {
         directives: {
           defaultSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"], // Allow inline scripts for widget
           imgSrc: ["'self'", "data:", "https:"],
           connectSrc: ["'self'"],
           fontSrc: ["'self'"],
@@ -478,6 +484,14 @@ async function startRealM365AgentsServer(): Promise<void> {
     // JSON parsing with size limits
     app.use(express.json({ limit: '10kb' }));
     app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+    // Serve static files from public directory (for UAT web interface)
+    app.use(express.static(path.join(__dirname, '../public')));
+
+    // Root route - serve demo website for UAT
+    app.get('/', (req, res) => {
+      res.sendFile(path.join(__dirname, '../public/demo-website.html'));
+    });
 
     // Health check endpoint
     app.get('/health', (req, res) => {

@@ -10,7 +10,7 @@
   // Configuration
   const script = document.currentScript || document.querySelector('script[src*="ask-eve-widget.js"]');
   const config = {
-    apiUrl: script.getAttribute('data-api-url') || 'http://localhost:3002',
+    apiUrl: script.getAttribute('data-api-url') || 'https://askeve-container-app.calmdesert-7b431664.uksouth.azurecontainerapps.io',
     themeColor: script.getAttribute('data-theme') || '#d63384', // Eve Appeal pink
     position: script.getAttribute('data-position') || 'bottom-right'
   };
@@ -72,19 +72,23 @@
     </div>
   `;
   
-  // Widget CSS styles
+  // Widget CSS styles - Fixed template literal evaluation
+  const verticalPosition = config.position.includes('bottom') ? 'bottom: 20px;' : 'top: 20px;';
+  const horizontalPosition = config.position.includes('right') ? 'right: 20px;' : 'left: 20px;';
+  const themeColor = config.themeColor;
+  
   const widgetCSS = `
     .ask-eve-widget {
       position: fixed;
-      ${config.position.includes('bottom') ? 'bottom: 20px;' : 'top: 20px;'}
-      ${config.position.includes('right') ? 'right: 20px;' : 'left: 20px;'}
+      ${verticalPosition}
+      ${horizontalPosition}
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
       z-index: 999999;
       direction: ltr;
     }
     
     .ask-eve-button {
-      background: ${config.themeColor};
+      background: ${themeColor};
       color: white;
       padding: 16px 20px;
       border-radius: 30px;
@@ -118,7 +122,7 @@
     }
     
     .ask-eve-header {
-      background: ${config.themeColor};
+      background: ${themeColor};
       color: white;
       padding: 20px;
       display: flex;
@@ -202,7 +206,7 @@
     }
     
     .ask-eve-bot-message .ask-eve-avatar {
-      background: ${config.themeColor};
+      background: ${themeColor};
       color: white;
     }
     
@@ -220,11 +224,11 @@
       background: #f8f9fa;
       padding: 12px 16px;
       border-radius: 16px 16px 16px 4px;
-      border-left: 3px solid ${config.themeColor};
+      border-left: 3px solid ${themeColor};
     }
     
     .ask-eve-user-message .ask-eve-text {
-      background: ${config.themeColor};
+      background: ${themeColor};
       color: white;
       padding: 12px 16px;
       border-radius: 16px 16px 4px 16px;
@@ -264,11 +268,11 @@
     }
     
     #ask-eve-input:focus {
-      border-color: ${config.themeColor};
+      border-color: ${themeColor};
     }
     
     .ask-eve-send-btn {
-      background: ${config.themeColor};
+      background: ${themeColor};
       color: white;
       border: none;
       width: 44px;
@@ -306,7 +310,7 @@
     }
     
     .ask-eve-disclaimer a {
-      color: ${config.themeColor};
+      color: ${themeColor};
       text-decoration: none;
     }
     
@@ -348,7 +352,7 @@
     .ask-eve-loading-dot {
       width: 8px;
       height: 8px;
-      background: ${config.themeColor};
+      background: ${themeColor};
       border-radius: 50%;
       opacity: 0.4;
       animation: askEveLoading 1.4s infinite ease-in-out both;
@@ -372,18 +376,41 @@
   
   // Initialize widget
   function initWidget() {
-    // Add CSS
-    const styleSheet = document.createElement('style');
-    styleSheet.textContent = widgetCSS;
-    document.head.appendChild(styleSheet);
-    
-    // Add HTML
-    const widgetContainer = document.createElement('div');
-    widgetContainer.innerHTML = widgetHTML;
-    document.body.appendChild(widgetContainer);
-    
-    // Attach event listeners
-    attachEventListeners();
+    try {
+      console.log('Ask Eve Widget: Adding CSS styles');
+      console.log('Ask Eve Widget: CSS preview:', widgetCSS.substring(0, 200) + '...');
+      
+      // Add CSS
+      const styleSheet = document.createElement('style');
+      styleSheet.textContent = widgetCSS;
+      document.head.appendChild(styleSheet);
+      
+      console.log('Ask Eve Widget: Adding HTML to body');
+      
+      // Add HTML
+      const widgetContainer = document.createElement('div');
+      widgetContainer.innerHTML = widgetHTML;
+      document.body.appendChild(widgetContainer);
+      
+      console.log('Ask Eve Widget: Widget HTML added, checking elements');
+      
+      // Verify elements were created
+      const widget = document.getElementById('ask-eve-widget');
+      const button = document.getElementById('ask-eve-button');
+      
+      if (widget && button) {
+        console.log('Ask Eve Widget: Elements created successfully');
+        console.log('Ask Eve Widget: Button computed styles:', getComputedStyle(button).position, getComputedStyle(button).bottom, getComputedStyle(button).right);
+        // Attach event listeners
+        attachEventListeners();
+        console.log('Ask Eve Widget: Initialization complete!');
+      } else {
+        console.error('Ask Eve Widget: Failed to create elements', { widget: !!widget, button: !!button });
+      }
+      
+    } catch (error) {
+      console.error('Ask Eve Widget: Error in initWidget:', error);
+    }
   }
   
   function attachEventListeners() {
@@ -477,7 +504,7 @@
       hideLoading();
       console.error('Ask Eve error:', error);
       addMessage('bot', 
-        'I apologize, but I\\'m experiencing technical difficulties. For immediate health support, please call NHS 111 or emergency services 999.',
+        'I apologize, but I\'m experiencing technical difficulties. For immediate health support, please call NHS 111 or emergency services 999.',
         false
       );
     });
@@ -487,17 +514,17 @@
     const messages = document.getElementById('ask-eve-messages');
     const messageDiv = document.createElement('div');
     
-    messageDiv.className = \`ask-eve-message ask-eve-\${sender}-message\`;
+    messageDiv.className = `ask-eve-message ask-eve-${sender}-message`;
     
     const avatar = document.createElement('div');
     avatar.className = 'ask-eve-avatar';
     avatar.textContent = sender === 'user' ? '👤' : '🌸';
     
     const textDiv = document.createElement('div');
-    textDiv.className = \`ask-eve-text\${isCrisis ? ' ask-eve-crisis' : ''}\`;
+    textDiv.className = `ask-eve-text${isCrisis ? ' ask-eve-crisis' : ''}`;
     
     // Convert newlines to paragraphs
-    const paragraphs = text.split('\\n').filter(p => p.trim());
+    const paragraphs = text.split('\n').filter(p => p.trim());
     paragraphs.forEach(paragraph => {
       const p = document.createElement('p');
       p.textContent = paragraph;
@@ -518,7 +545,7 @@
     loadingDiv.className = 'ask-eve-message ask-eve-bot-message';
     loadingDiv.id = 'ask-eve-loading-message';
     
-    loadingDiv.innerHTML = \`
+    loadingDiv.innerHTML = `
       <div class="ask-eve-avatar">🌸</div>
       <div class="ask-eve-text">
         <div class="ask-eve-loading">
@@ -527,7 +554,7 @@
           <div class="ask-eve-loading-dot"></div>
         </div>
       </div>
-    \`;
+    `;
     
     messages.appendChild(loadingDiv);
     messages.scrollTop = messages.scrollHeight;
@@ -540,11 +567,29 @@
     }
   }
   
-  // Auto-initialize when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initWidget);
+  // Auto-initialize when DOM is ready with better error handling
+  function safeInit() {
+    try {
+      console.log('Ask Eve Widget: Initializing...');
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+          console.log('Ask Eve Widget: DOM loaded, initializing widget');
+          initWidget();
+        });
+      } else {
+        console.log('Ask Eve Widget: DOM already loaded, initializing widget immediately');
+        initWidget();
+      }
+    } catch (error) {
+      console.error('Ask Eve Widget: Initialization error:', error);
+    }
+  }
+  
+  // Add a small delay to ensure all other scripts have loaded
+  if (document.readyState === 'complete') {
+    safeInit();
   } else {
-    initWidget();
+    window.addEventListener('load', safeInit);
   }
   
 })();

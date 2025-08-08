@@ -1,0 +1,41 @@
+# Ask Eve Assist - Docker ignore file for optimized builds
+
+# Development files
+node_modules
+src
+*.ts
+tsconfig.json
+.env*
+.git
+.gitignore
+
+# Documentation and non-production files
+docs
+scripts
+*.md
+LICENSE
+
+# Test files
+**/__tests__
+**/*.test.*
+**/*.spec.*
+jest.config.js
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp
+temp
+logs
+*.log
+
+# Build artifacts that aren't needed
+.tsbuildinfo

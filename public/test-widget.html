@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget Test Page</title>
+</head>
+<body>
+    <h1>Testing Ask Eve Widget</h1>
+    <p>The widget should appear in the bottom-right corner.</p>
+    
+    <!-- Ask Eve Assist Widget -->
+    <script src="ask-eve-widget.js"></script>
+    
+    <script>
+        console.log('Widget script loaded');
+        
+        // Add error handling
+        window.addEventListener('error', function(e) {
+            console.error('JavaScript error:', e.error);
+        });
+        
+        // Check if widget exists after page load
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const widget = document.getElementById('ask-eve-widget');
+                const button = document.getElementById('ask-eve-button');
+                console.log('Widget found:', !!widget);
+                console.log('Button found:', !!button);
+                
+                if (widget) {
+                    console.log('Widget HTML:', widget.outerHTML.substring(0, 200) + '...');
+                } else {
+                    console.error('Widget not found! Check for JavaScript errors.');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
