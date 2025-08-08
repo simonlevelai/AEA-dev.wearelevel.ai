@@ -247,7 +247,10 @@
         "RetentionInDays": 30,
         "DisableIpMasking": false,
         "DisableLocalAuth": false,
-        "ForceCustomerStorageForProfiler": false
+        "ForceCustomerStorageForProfiler": false,
+        "IngestionMode": "ApplicationInsights",
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled"
       },
       "metadata": {
         "description": "Cost-optimized monitoring with 5% sampling (£2-4/month vs £10-15/month full monitoring)"

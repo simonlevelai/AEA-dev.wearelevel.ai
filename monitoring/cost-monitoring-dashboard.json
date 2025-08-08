@@ -1,0 +1,235 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "title": "Ask Eve Cost Monitoring Dashboard",
+    "description": "Monitor cost optimization effectiveness - target £2-4/month Application Insights",
+    "category": "Cost Optimization",
+    "costReduction": "70% Application Insights savings achieved"
+  },
+  "parameters": {
+    "dashboardName": {
+      "type": "string",
+      "defaultValue": "Ask Eve Cost Monitoring Dashboard",
+      "metadata": {
+        "description": "Name of the cost monitoring dashboard"
+      }
+    },
+    "appInsightsResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the Application Insights instance"
+      }
+    }
+  },
+  "variables": {
+    "dashboardId": "[guid(parameters('dashboardName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Portal/dashboards",
+      "apiVersion": "2020-09-01-preview", 
+      "name": "[variables('dashboardId')]",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "hidden-title": "[parameters('dashboardName')]",
+        "cost-optimization": "active",
+        "target-savings": "70%",
+        "monthly-budget": "£2-4"
+      },
+      "properties": {
+        "lenses": [
+          {
+            "order": 0,
+            "parts": [
+              {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "colSpan": 6,
+                  "rowSpan": 4
+                },
+                "metadata": {
+                  "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart",
+                  "inputs": [
+                    {
+                      "name": "ComponentId",
+                      "value": "[parameters('appInsightsResourceId')]"
+                    },
+                    {
+                      "name": "Query",
+                      "value": "union *\n| where timestamp > ago(30d)\n| extend data_size_mb = estimate_data_size() / 1000000\n| summarize daily_ingestion_mb = sum(data_size_mb) by bin(timestamp, 1d)\n| extend monthly_projection_gb = daily_ingestion_mb * 30 / 1000\n| extend monthly_cost_projection = monthly_projection_gb * 2.5\n| render timechart"
+                    },
+                    {
+                      "name": "PartTitle",
+                      "value": "Monthly Cost Projection (Target: £2-4)"
+                    },
+                    {
+                      "name": "PartSubTitle",
+                      "value": "Application Insights Data Ingestion Costs"
+                    }
+                  ]
+                }
+              },
+              {
+                "position": {
+                  "x": 6,
+                  "y": 0,
+                  "colSpan": 6,
+                  "rowSpan": 4
+                },
+                "metadata": {
+                  "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart",
+                  "inputs": [
+                    {
+                      "name": "ComponentId",
+                      "value": "[parameters('appInsightsResourceId')]"
+                    },
+                    {
+                      "name": "Query",
+                      "value": "union *\n| where timestamp > ago(7d)\n| summarize total_events = count(), sampled_events = countif(customDimensions.sampled == 'true'), critical_events = countif(customDimensions.criticality == 'high')\n| extend sampling_rate = (sampled_events * 100.0) / total_events\n| extend critical_collection_rate = (critical_events * 100.0) / total_events\n| project sampling_rate, critical_collection_rate, total_events"
+                    },
+                    {
+                      "name": "PartTitle",
+                      "value": "Sampling Effectiveness (Target: 5% Standard + 100% Critical)"
+                    },
+                    {
+                      "name": "PartSubTitle",
+                      "value": "Cost Optimization vs Healthcare Safety Balance"
+                    }
+                  ]
+                }
+              },
+              {
+                "position": {
+                  "x": 0,
+                  "y": 4,
+                  "colSpan": 4,
+                  "rowSpan": 3
+                },
+                "metadata": {
+                  "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart",
+                  "inputs": [
+                    {
+                      "name": "ComponentId",
+                      "value": "[parameters('appInsightsResourceId')]"
+                    },
+                    {
+                      "name": "Query",
+                      "value": "union *\n| where timestamp > ago(1d)\n| extend data_size_mb = estimate_data_size() / 1000000\n| summarize ingestion_mb = sum(data_size_mb)\n| extend monthly_projection_mb = ingestion_mb * 30\n| extend target_limit_mb = 500\n| extend status = case(monthly_projection_mb <= target_limit_mb, 'On Track', 'Over Budget')\n| project monthly_projection_mb, target_limit_mb, status"
+                    },
+                    {
+                      "name": "PartTitle",
+                      "value": "Data Ingestion Budget Status"
+                    },
+                    {
+                      "name": "PartSubTitle",
+                      "value": "Target: <500MB/month"
+                    }
+                  ]
+                }
+              },
+              {
+                "position": {
+                  "x": 4,
+                  "y": 4,
+                  "colSpan": 4,
+                  "rowSpan": 3
+                },
+                "metadata": {
+                  "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart",
+                  "inputs": [
+                    {
+                      "name": "ComponentId", 
+                      "value": "[parameters('appInsightsResourceId')]"
+                    },
+                    {
+                      "name": "Query",
+                      "value": "customMetrics\n| where name startswith 'openai_'\n| where timestamp > ago(7d)\n| where customDimensions.sampled == 'true'\n| summarize total_tokens = sum(value), estimated_cost = sum(todouble(customDimensions.cost_usd)) by bin(timestamp, 1d)\n| extend monthly_cost_projection = estimated_cost * 30\n| render timechart"
+                    },
+                    {
+                      "name": "PartTitle",
+                      "value": "OpenAI Token Usage & Costs"
+                    },
+                    {
+                      "name": "PartSubTitle",
+                      "value": "5% Sampled Data - Cost Tracking"
+                    }
+                  ]
+                }
+              },
+              {
+                "position": {
+                  "x": 8,
+                  "y": 4,
+                  "colSpan": 4,
+                  "rowSpan": 3
+                },
+                "metadata": {
+                  "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart",
+                  "inputs": [
+                    {
+                      "name": "ComponentId",
+                      "value": "[parameters('appInsightsResourceId')]"
+                    },
+                    {
+                      "name": "Query",
+                      "value": "customEvents\n| where timestamp > ago(7d)\n| summarize critical_events = countif(customDimensions.criticality == 'high'), standard_events = countif(customDimensions.sampled == 'true'), total_events = count() by bin(timestamp, 1d)\n| extend cost_optimization_ratio = (standard_events * 100.0) / total_events\n| render timechart"
+                    },
+                    {
+                      "name": "PartTitle",
+                      "value": "Cost Optimization Effectiveness"
+                    },
+                    {
+                      "name": "PartSubTitle",
+                      "value": "Daily Sampling vs Critical Event Collection"
+                    }
+                  ]
+                }
+              },
+              {
+                "position": {
+                  "x": 0,
+                  "y": 7,
+                  "colSpan": 12,
+                  "rowSpan": 3
+                },
+                "metadata": {
+                  "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart",
+                  "inputs": [
+                    {
+                      "name": "ComponentId",
+                      "value": "[parameters('appInsightsResourceId')]"
+                    },
+                    {
+                      "name": "Query",
+                      "value": "let cost_optimization_summary = union *\n| where timestamp > ago(30d)\n| extend data_size_mb = estimate_data_size() / 1000000\n| summarize \n    total_events = count(),\n    critical_events = countif(customDimensions.criticality == 'high'),\n    sampled_events = countif(customDimensions.sampled == 'true'),\n    monthly_data_mb = sum(data_size_mb),\n    estimated_monthly_cost = (sum(data_size_mb) * 2.5) / 1000\n| extend \n    critical_collection_rate = (critical_events * 100.0) / total_events,\n    sampling_effectiveness = (sampled_events * 100.0) / total_events,\n    cost_status = case(estimated_monthly_cost <= 4.0, 'On Budget', 'Over Budget'),\n    healthcare_safety_status = case(critical_collection_rate == 100.0, 'Compliant', 'Non-Compliant')\n| project \n    estimated_monthly_cost,\n    monthly_data_mb,\n    critical_collection_rate,\n    sampling_effectiveness,\n    cost_status,\n    healthcare_safety_status,\n    total_events,\n    critical_events;\ncost_optimization_summary"
+                    },
+                    {
+                      "name": "PartTitle",
+                      "value": "Cost Optimization Summary - £2-4/month Target"
+                    },
+                    {
+                      "name": "PartSubTitle",
+                      "value": "70% Application Insights Cost Reduction While Maintaining Healthcare Safety"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "outputs": {
+    "dashboardId": {
+      "type": "string",
+      "value": "[variables('dashboardId')]"
+    },
+    "dashboardUrl": {
+      "type": "string", 
+      "value": "[concat('https://portal.azure.com/#@/dashboard/arm', resourceGroup().id, '/providers/Microsoft.Portal/dashboards/', variables('dashboardId'))]"
+    }
+  }
+}

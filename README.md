@@ -164,10 +164,14 @@ npm run verify:cost-target-achieved         # ✅ Cost-optimized targets met
 - **Azure Blob Storage**: UK South region Hot tier for document storage
 
 ### Secret Management
-All secrets stored in Azure Key Vault:
-- `openai-api-key`: AI service authentication
-- `teams-webhook-url`: Nurse escalation endpoint
-- `emergency-contact-webhook`: Crisis notification system
+Cost-optimized security using Azure Container Apps environment variables:
+- `AZURE_OPENAI_API_KEY`: AI service authentication (managed identity recommended)
+- `AZURE_SEARCH_API_KEY`: Search service authentication (retrieved from ARM template)
+- `AZURE_TABLE_STORAGE_CONNECTION`: Storage connection string (generated from ARM template)
+- `TEAMS_WEBHOOK_URL`: Nurse escalation endpoint
+- `EMERGENCY_CONTACT_WEBHOOK`: Crisis notification system
+
+**Cost Optimization**: Container Apps environment variables eliminate Key Vault costs (£2-3/month savings)
 
 ## 📚 Documentation
 
