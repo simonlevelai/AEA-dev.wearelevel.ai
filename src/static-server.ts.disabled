@@ -1,0 +1,56 @@
+#!/usr/bin/env npx ts-node
+
+/**
+ * Simple Static File Server for Ask Eve Widget Demo
+ * Serves the widget files and demo website
+ */
+
+import express from 'express';
+import path from 'path';
+import { Logger } from './utils/logger';
+
+const logger = new Logger('static-server');
+const app = express();
+
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, '../public')));
+
+// CORS for cross-origin requests
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  next();
+});
+
+// Root redirects to demo
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/demo-website.html'));
+});
+
+// Widget endpoint
+app.get('/widget.js', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/ask-eve-widget.js'));
+});
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    service: 'Ask Eve Widget Static Server',
+    timestamp: new Date().toISOString()
+  });
+});
+
+const port = parseInt(process.env.STATIC_PORT || '8080', 10);
+
+app.listen(port, '0.0.0.0', () => {
+  logger.info('🎉 Ask Eve Widget Static Server running', {
+    port,
+    endpoints: {
+      demo: `http://localhost:${port}`,
+      widget: `http://localhost:${port}/widget.js`,
+      health: `http://localhost:${port}/health`
+    }
+  });
+});

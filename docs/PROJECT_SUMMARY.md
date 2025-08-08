@@ -1,121 +1,118 @@
-# Ask Eve Assist - Complete Project Summary (M365 Agents SDK 2025)
+# Ask Eve Assist - Microsoft 365 Agents SDK 2025 Project Summary
 
 ## 🎯 Project Overview
 
-**Ask Eve Assist** is a revolutionary safety-critical health information chatbot powered by Microsoft 365 Agents SDK 2025 multi-agent architecture and **ultra-cheap Azure-native infrastructure** for The Eve Appeal charity, providing 24/7 access to trusted gynaecological health information with <500ms crisis detection while achieving **80-85% cost reduction**.
+**Ask Eve Assist** is an advanced multi-agent healthcare assistant powered by **Microsoft 365 Agents SDK 2025** with specialized agent orchestration for gynaecological health information from The Eve Appeal. The system implements cutting-edge multi-agent architecture with safety-first healthcare orchestration, <500ms crisis detection, and MHRA-compliant medical information delivery.
 
-### Key Constraints (Enhanced with Ultra-Cheap Azure Architecture)
-- ✅ **£3-5/month running costs** (reduced from £25-35/month - **85% cost reduction**)
-- ✅ Multi-agent architecture transformation completed with Azure services
-- ✅ <500ms crisis detection (tested at 402ms) with Azure Table Storage
-- ✅ RAG-only (no medical advice generation) with Azure AI Search hybrid vector search
-- ✅ MHRA compliant with enhanced Azure-native safety architecture
-- ✅ All content must link to sources with Azure AI Search source attribution
-- ✅ **Ultra-cheap migration path**: Supabase → Azure Table Storage + AI Search Free tier
+### Core M365 Agents SDK Features
+- 🤖 **Multi-Agent Orchestration**: Healthcare-specific agent sequencing (Safety → Content → Escalation)
+- ⚡ **<500ms Crisis Detection**: SafetyAgent immediate emergency response
+- 🏥 **MHRA Compliance**: Evidence-based content retrieval, no medical advice generation
+- 🔄 **Agent Communication Protocol**: Healthcare-specialized inter-agent messaging
+- 📊 **Foundation Model Management**: Intelligent model selection with GPT-4o-mini
+- 🛡️ **Safety-First Architecture**: Mandatory safety validation on all messages
+- 💬 **Group Chat Coordination**: ≤3 agents per M365 SDK best practices
 
-## 📚 Complete Documentation Set (Updated for M365 SDK)
+## 📚 M365 Agents SDK Documentation
 
-### 1. **M365 Agents SDK Architecture** (`docs/M365_AGENTS_SDK_ARCHITECTURE.md`) ✨ NEW
-- Multi-agent system blueprint
-- ChatManager orchestration framework
-- Agent-to-agent communication protocols
-- Foundation model integration patterns
+### 1. **Multi-Agent System Architecture** (`docs/ARCHITECTURE.md`)
+- Microsoft 365 Agents SDK 2025 implementation blueprint
+- AgentBuilder patterns with foundation models
+- Healthcare-specific agent orchestration (≤3 agents)
+- Safety-first architecture principles
 
-### 2. **Ultra-Cheap Azure Architecture** (`docs/AZURE_ARCHITECTURE.md`) ✨ NEW
-- Azure AI Search Free tier (50MB) with hybrid text+vector search
-- Azure Table Storage (£1-2/month) for conversation metadata
-- Azure Services Factory for centralized management
-- Cost analysis: £3-5/month total (80-85% reduction)
+### 2. **Agent Implementation Guide** (`docs/BOT_IMPLEMENTATION_GUIDE.md`)
+- Specialized agent development (Safety, Content, Escalation)
+- IAgent interface implementation patterns
+- Agent communication protocol integration
+- Healthcare compliance requirements
 
-### 3. **Enhanced System Design** (`docs/ARCHITECTURE.md`)
-- Multi-agent component breakdown with Azure-native services
-- Healthcare-specific orchestration patterns
-- **Ultra-cheap cost architecture (£3-5/month achieved)**
-- Azure migration strategy and deployment automation
+### 3. **Development & Testing** (`docs/DEV_SETUP.md`)
+- M365 SDK environment configuration
+- Multi-agent development workflow
+- Agent orchestration testing procedures
+- Integration test suite setup
 
-### 4. **Azure Migration Guide** (`docs/AZURE_MIGRATION_GUIDE.md`) ✨ NEW
-- Step-by-step Supabase → Azure Table Storage migration
-- Data validation and testing procedures
-- Cost comparison and optimization strategies
-- Migration scripts and rollback procedures
+### 4. **Agent Communication Protocols** (`src/services/AgentCommunicationProtocol.ts`)
+- Healthcare-specific inter-agent messaging
+- Crisis broadcast patterns
+- Agent handoff coordination
+- Group chat orchestration methods
 
-### 5. **Widget Integration Guide** (`EVE_APPEAL_INTEGRATION_GUIDE.md`) ✨ NEW
-- Complete The Eve Appeal website integration
-- Drop-in JavaScript widget with Eve Appeal branding
-- WordPress plugin with admin panel
-- Multi-platform deployment options
+### 5. **Core Agent Implementations**
+- **SafetyAgent** (`src/agents/SafetyAgent.ts`): Crisis detection <500ms
+- **ContentAgent** (`src/agents/ContentAgent.ts`): MHRA-compliant medical RAG
+- **EscalationAgent** (`src/agents/EscalationAgent.ts`): Nurse callbacks + Teams
 
-### 6. **Multi-Agent Implementation** (`src/agents/`, `src/services/AzureServicesFactory.ts`)
-- Working M365 SDK 2025 code examples with Azure services
-- Safety Agent with <500ms crisis detection using Azure Table Storage
-- Content Agent with Azure AI Search hybrid vector search
-- Escalation Agent with GDPR callbacks and Azure integration
-- Azure Services Factory for centralized ultra-cheap service management
+### 6. **Orchestration Services**
+- **ChatManager** (`src/services/ChatManager.ts`): Multi-agent coordination
+- **FoundationModelManager** (`src/services/FoundationModelManager.ts`): Intelligent model selection
+- **ConversationFlowEngine** (`src/services/ConversationFlowEngine.ts`): M365 conversation management
 
-### 7. **Enhanced Safety & Escalation Systems** (`docs/SAFETY_SYSTEMS.md`)
-- Multi-agent crisis detection patterns
-- Agent-to-agent escalation workflows
-- <500ms emergency response templates
-- Healthcare compliance audit requirements
+### 7. **Safety & Compliance Systems** (`docs/SAFETY_SYSTEMS.md`)
+- Multi-agent crisis detection patterns with M365 SDK integration
+- Agent-to-agent escalation workflows and communication protocols
+- <500ms emergency response with healthcare orchestration
+- MHRA and GDPR compliance through agent specialization
 
-### 8. **Azure Deployment Guide** (`docs/DEPLOYMENT_GUIDE.md`)
-- Ultra-cheap Azure architecture deployment templates
-- Azure AI Search Free tier setup and content migration
-- Azure Table Storage initialization and schema setup
-- Multi-agent CI/CD pipelines with Azure integration
-- Widget CDN deployment process with Azure infrastructure
+### 8. **Deployment & Production** (`docs/DEPLOYMENT_GUIDE.md`)
+- M365 Agents SDK production deployment
+- Azure OpenAI integration with foundation models
+- Multi-agent CI/CD pipelines
+- Health monitoring and agent orchestration metrics
 
-## 🤖 Ultra-Cheap Azure + M365 Agents SDK Architecture
+## 🤖 M365 Agents SDK Healthcare Architecture
 
-### Three Healthcare-Specialized Agents with Azure Services (M365 SDK Best Practice: ≤3 Agents)
+### Three Healthcare-Specialized Agents (M365 SDK Best Practice: ≤3 Agents)
 
-1. **Safety Agent** ⚡ (Priority: CRITICAL) - **Azure Table Storage Integration**
-   - <500ms crisis detection (tested: 402ms) with Azure Table Storage logging
-   - Emergency contacts broadcast protocol with Azure-native persistence
-   - Multi-layer pattern matching for self-harm/suicide ideation
-   - Mandatory first agent in healthcare sequence
-   - Crisis response bypasses other agents, logs to Azure for compliance
+1. **SafetyAgent** ⚡ (Priority: CRITICAL)
+   - <500ms crisis detection with immediate emergency response
+   - Crisis broadcast protocol bypassing other agents
+   - Multi-layer pattern matching for healthcare emergencies
+   - Mandatory first agent in healthcare sequencing
+   - Emergency contacts: 999, Samaritans 116 123, NHS 111
 
-2. **Content Agent** 📚 (Priority: HIGH) - **Azure AI Search Hybrid Vector Search**
-   - **Azure AI Search Free tier** with 50MB capacity for PiF-approved content
-   - **Hybrid text + vector search** using text-embedding-ada-002 (1536 dimensions)
-   - MHRA-compliant health information retrieval with mandatory source attribution
-   - Entity recognition with Azure-enhanced medical term matching
-   - **Automatic search operation logging** to Azure Table Storage for analytics
+2. **ContentAgent** 📚 (Priority: HIGH)
+   - MHRA-compliant medical information retrieval
+   - RAG (Retrieval-Augmented Generation) with PiF-approved content
+   - Mandatory source attribution for all medical information
+   - Evidence-based responses only, no advice generation
+   - Integration with Azure AI Search for medical content
 
-3. **Escalation Agent** 🏥 (Priority: MEDIUM) - **Azure GDPR Integration**
-   - GDPR-compliant nurse callback coordination with Azure Table Storage
+3. **EscalationAgent** 🏥 (Priority: MEDIUM)
+   - GDPR-compliant nurse callback coordination
    - Teams webhook integration for healthcare professionals
-   - Contact collection workflow with UK validation and Azure persistence
-   - **30-day TTL automatic cleanup** via Azure Table Storage GDPR compliance
-   - Queue management with Azure-native availability tracking
+   - Contact collection workflows with data protection
+   - Healthcare escalation protocols and audit logging
+   - 30-day automatic data retention with compliance cleanup
 
-### Ultra-Cheap Azure + M365 SDK Coordination Framework
-- `src/services/AzureServicesFactory.ts` - **Centralized Azure services management**
-- `src/services/AzureAISearchService.ts` - **Hybrid text + vector search service**
-- `src/services/AzureTableStorageService.ts` - **Ultra-cheap metadata storage**
-- `src/services/ChatManager.ts` - Multi-agent orchestration service
-- `src/services/AgentCommunicationProtocol.ts` - Healthcare-specific messaging
-- `src/services/FoundationModelManager.ts` - Intelligent model selection
-- `src/types/agents.ts` - Agent interface definitions and protocols
-- `scripts/test-complete-azure-architecture.ts` - **Complete Azure architecture validation**
-- `scripts/migrate-supabase-to-azure-table.ts` - **Migration automation**
+### M365 Agents SDK Orchestration Framework
+- `src/services/ChatManager.ts` - Multi-agent orchestration with healthcare sequencing
+- `src/services/AgentCommunicationProtocol.ts` - Healthcare-specific inter-agent messaging
+- `src/services/FoundationModelManager.ts` - Intelligent model selection and optimization
+- `src/services/ConversationFlowEngine.ts` - M365 conversation management
+- `src/services/ConversationGDPRIntegration.ts` - Healthcare data compliance
+- `src/types/agents.ts` - IAgent interface definitions and protocols
 
-## 🔑 Critical Features (Enhanced with M365 SDK)
+## 🔑 M365 Agents SDK Critical Features
 
-### 1. **Multi-Agent MHRA Compliance**
-- Safety Agent validates all medical content before response
-- Content Agent enforces "information only" policy
-- Multi-agent validation prevents advice generation
-- Enhanced compliance monitoring across agent interactions
+### 1. **Multi-Agent Safety-First Architecture**
+- SafetyAgent ALWAYS processes messages first (<500ms requirement)
+- Healthcare-specific agent sequencing: Safety → Content → Escalation
+- Crisis detection bypasses all other agents for immediate emergency response
+- Mandatory safety validation on every user message
 
-### 2. **Enhanced Source Attribution**
-- Content Agent ensures every response includes source URL
-- Multi-agent validation of attribution accuracy
-- Links to eveappeal.org.uk with page-specific references
-- Trust building through transparent agent decision-making
+### 2. **Healthcare Compliance Through Agent Specialization**
+- ContentAgent enforces MHRA compliance (evidence-based information only)
+- Mandatory source attribution through specialized content retrieval
+- No medical advice generation - agents retrieve information only
+- GDPR compliance through EscalationAgent data management
 
-### 3. **Revolutionary Safety Systems**
+### 3. **Advanced Multi-Agent Communication**
+- Agent-to-agent messaging protocols for healthcare workflows
+- Crisis broadcast protocols for emergency response coordination
+- Healthcare-specific handoff patterns between specialized agents
+- Group chat coordination following M365 SDK best practices (≤3 agents)
 - Safety Agent <500ms crisis detection (tested: 402ms)
 - Multi-agent crisis escalation protocols
 - Agent-to-agent emergency communication

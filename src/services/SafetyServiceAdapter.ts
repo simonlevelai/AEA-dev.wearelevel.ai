@@ -5,7 +5,7 @@ import { Logger } from '../utils/logger';
 
 /**
  * Adapter that bridges the SafetyService interface with the EscalationService implementation
- * This allows the AgentsSDKBot to use the existing safety infrastructure
+ * This allows the AskEveAssistBot to use the existing safety infrastructure
  */
 export class SafetyServiceAdapter implements SafetyService {
   private escalationService: EscalationService;

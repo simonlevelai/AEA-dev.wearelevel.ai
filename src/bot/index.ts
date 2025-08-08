@@ -1,9 +1,29 @@
 #!/usr/bin/env node
 
 import { BotServer } from './BotServer';
-import { Logger } from '../utils/logger';
 
-const logger = new Logger('bot-main');
+// Simple inline logger
+class SimpleLogger {
+  constructor(private component: string) {}
+  
+  info(message: string, context?: any) {
+    console.log(`[INFO] ${this.component}: ${message}`, context || '');
+  }
+  
+  error(message: string, context?: any) {
+    console.error(`[ERROR] ${this.component}: ${message}`, context || '');
+  }
+  
+  critical(message: string, context?: any) {
+    console.error(`[CRITICAL] ${this.component}: ${message}`, context || '');
+  }
+  
+  async shutdown() {
+    // Placeholder for cleanup
+  }
+}
+
+const logger = new SimpleLogger('bot-main');
 
 async function main(): Promise<void> {
   try {
@@ -23,7 +43,8 @@ async function main(): Promise<void> {
         await logger.shutdown();
         process.exit(0);
       } catch (error) {
-        logger.error('Error during bot server shutdown', { error });
+        const errorObj = error instanceof Error ? error : new Error(String(error));
+        logger.error('Error during bot server shutdown', { error: errorObj });
         process.exit(1);
       }
     };
@@ -55,4 +76,4 @@ if (require.main === module) {
 
 export { main as startBotServer };
 export { BotServer } from './BotServer';
-export { AgentsSDKBot } from './AgentsSDKBot';
+export { AskEveAssistBot } from '../index-real-m365';

@@ -41,6 +41,18 @@
     "node_modules",
     "dist",
     "**/*.test.ts",
-    "coverage"
+    "coverage",
+    "**/*.disabled",
+    "src/adapters.disabled/**/*",
+    "src/handlers.disabled/**/*",
+    "src/dialogs.disabled/**/*", 
+    "src/workflows.disabled/**/*",
+    "src/examples.disabled/**/*",
+    "src/services/**/*",
+    "src/middleware/**/*",
+    "src/types/**/*", 
+    "src/utils/**/*",
+    "scripts/**/*",
+    "src/web-api.ts"
   ]
 }

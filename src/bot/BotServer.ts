@@ -1,60 +1,81 @@
 import express from 'express';
-import { AgentsSDKBot } from './AgentsSDKBot';
-import { SafetyServiceAdapter } from '../services/SafetyServiceAdapter';
-import { SupabaseContentService } from '../services/SupabaseContentService';
-import { EscalationService } from '../services/EscalationService';
-import { NotificationService } from '../services/NotificationService';
-import { Logger } from '../utils/logger';
-import { MessageContext, AgentResponse } from '../types';
-import { TurnContext, ActivityHandler, MessageFactory } from 'botbuilder';
+import { AskEveAssistBot } from '../index-real-m365';
+import { ConversationState, UserState, MemoryStorage, CloudAdapter, TurnContext } from '@microsoft/agents-hosting';
+import { MessageFactory } from 'botbuilder';
+
+// Simple inline logger to replace ../utils/logger
+class SimpleLogger {
+  constructor(private component: string) {}
+  
+  info(message: string, context?: any) {
+    console.log(`[INFO] ${this.component}: ${message}`, context || '');
+  }
+  
+  error(message: string, context?: any) {
+    console.error(`[ERROR] ${this.component}: ${message}`, context || '');
+  }
+  
+  warn(message: string, context?: any) {
+    console.warn(`[WARN] ${this.component}: ${message}`, context || '');
+  }
+}
+
+// Simple inline types to replace ../types
+type MessageContext = {
+  message: { text: string; id: string };
+  conversationId: string;
+  userId: string;
+  conversationHistory: any[];
+  send: (response: AgentResponse) => Promise<void>;
+  sendTyping: () => Promise<void>;
+};
+
+type AgentResponse = {
+  text: string;
+  suggestedActions?: string[];
+  attachments?: any[];
+};
 
 export class BotServer {
   private app: express.Application;
-  private bot: AgentsSDKBot;
-  private logger: Logger;
-  private escalationService: EscalationService;
-  private notificationService: NotificationService;
+  private bot: AskEveAssistBot;
+  private logger: SimpleLogger;
+  private adapter: CloudAdapter;
+  private conversationState: ConversationState;
+  private userState: UserState;
 
   constructor() {
-    this.logger = new Logger('bot-server');
+    this.logger = new SimpleLogger('bot-server');
     this.app = express();
     this.setupMiddleware();
   }
 
   async initialize(): Promise<void> {
     try {
-      // Initialize services
-      this.notificationService = new NotificationService(
-        process.env.TEAMS_WEBHOOK_URL || 'test-webhook-url',
-        this.logger
-      );
-
-      this.escalationService = new EscalationService(this.logger, this.notificationService);
-      await this.escalationService.initialize();
-
-      const safetyService = new SafetyServiceAdapter(this.escalationService, this.logger);
-      const contentService = new SupabaseContentService(
-        process.env.SUPABASE_URL || '',
-        process.env.SUPABASE_ANON_KEY || '',
-        this.logger
-      );
-      await contentService.initialize();
-
-      // Initialize bot with ConversationFlowEngine integration
-      this.bot = new AgentsSDKBot({
-        botId: 'ask-eve-assist',
-        botName: 'Ask Eve Assist',
-        safetyService,
-        contentService
-      }, this.logger);
+      // Initialize M365 SDK components
+      const storage = new MemoryStorage();
+      this.conversationState = new ConversationState(storage);
+      this.userState = new UserState(storage);
+      this.adapter = new CloudAdapter();
       
-      // Initialize the bot's conversation flow engine
-      await this.bot.initialize();
+      // Initialize bot with real M365 SDK
+      this.bot = new AskEveAssistBot(this.conversationState, this.userState);
+      
+      // Error handling for adapter
+      this.adapter.onTurnError = async (context: TurnContext, error: Error) => {
+        this.logger.error('Bot encountered an error', { 
+          error,
+          activityType: context.activity.type,
+          channelId: context.activity.channelId
+        });
+        await context.sendActivity('Sorry, an error occurred. For immediate health support, please call NHS 111.');
+      };
 
       this.setupRoutes();
       this.logger.info('BotServer initialized successfully');
     } catch (error) {
-      this.logger.error('Failed to initialize BotServer', { error });
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      this.logger.error('Failed to initialize BotServer', { error: errorObj });
       throw error;
     }
   }
@@ -86,34 +107,37 @@ export class BotServer {
     });
 
     // Bot messaging endpoint
-    this.app.post('/api/messages', async (req, res) => {
+    this.app.post('/api/messages', async (req, res): Promise<void> => {
       try {
         const { message, conversationId, userId } = req.body;
         
         if (!message) {
-          return res.status(400).json({ error: 'Message is required' });
+          res.status(400).json({ error: 'Message is required' });
+          return;
         }
 
         // Create mock TurnContext for the bot
         const mockContext = this.createMockTurnContext(message, conversationId, userId);
         
-        // Process message through bot
-        await this.bot.handleMessage(mockContext);
+        // Process message through real M365 SDK bot
+        await this.bot.run(mockContext);
         
         res.json({ success: true });
       } catch (error) {
-        this.logger.error('Bot message processing failed', { error });
+        const errorObj = error instanceof Error ? error : new Error(String(error));
+        this.logger.error('Bot message processing failed', { error: errorObj });
         res.status(500).json({ error: 'Internal server error' });
       }
     });
 
     // Direct chat API for web widget
-    this.app.post('/api/chat', async (req, res) => {
+    this.app.post('/api/chat', async (req, res): Promise<void> => {
       try {
         const { message, conversationId = 'web-chat', userId = 'anonymous' } = req.body;
         
         if (!message) {
-          return res.status(400).json({ error: 'Message is required' });
+          res.status(400).json({ error: 'Message is required' });
+          return;
         }
 
         // Create MessageContext for direct processing
@@ -147,8 +171,8 @@ export class BotServer {
           return originalSendActivity(activity);
         };
         
-        // Process through conversation flow engine
-        await this.bot.handleMessage(mockTurnContext);
+        // Process through real M365 SDK bot
+        await this.bot.run(mockTurnContext);
         
         // Build response from conversation flow result
         if (flowResponse) {
@@ -178,7 +202,8 @@ export class BotServer {
         });
 
       } catch (error) {
-        this.logger.error('Chat API error', { error });
+        const errorObj = error instanceof Error ? error : new Error(String(error));
+        this.logger.error('Chat API error', { error: errorObj });
         res.status(500).json({ 
           error: 'I apologize, but I\'m experiencing technical difficulties. Please try again or contact The Eve Appeal directly.',
           emergencyContacts: this.getEmergencyContacts()
@@ -198,8 +223,8 @@ export class BotServer {
 
   private createMockTurnContext(message: string, conversationId: string, userId: string): TurnContext {
     const activity = MessageFactory.text(message);
-    activity.from = { id: userId };
-    activity.conversation = { id: conversationId };
+    activity.from = { id: userId, name: 'Web User' };
+    activity.conversation = { id: conversationId, isGroup: false, conversationType: 'personal', name: 'Web Chat' };
 
     // Create a mock TurnContext with necessary methods
     const mockContext = {

@@ -1,96 +1,125 @@
-# Claude Code Instructions - Ask Eve Assist Bot
+# Claude Code Instructions - Ask Eve Assist Multi-Agent System
 
 ## 🎯 Project Overview
 
-You're helping build **Ask Eve Assist** - a health information chatbot for The Eve Appeal (gynaecological cancer charity). This is a safety-critical application that must NEVER provide medical advice, only retrieve information from approved content.
+You're working with **Ask Eve Assist** - an advanced multi-agent healthcare assistant powered by **Microsoft 365 Agents SDK 2025**. This is a safety-critical application implementing specialized agent orchestration for gynaecological health information from The Eve Appeal.
 
 **Critical Context:**
-- Moving from Microsoft Copilot Studio to custom build due to content moderation issues
-- Must be RAG-only (no open generation)
-- Budget: Under £50/month
-- Timeline: 2-week MVP
-- Platform: Azure AI Foundry + Microsoft Agents SDK
+- **Microsoft 365 Agents SDK 2025** with multi-agent orchestration
+- **Safety-first architecture** with mandatory agent validation
+- **Healthcare-specific agent sequencing**: Safety → Content → Escalation
+- **MHRA compliant**: Evidence-based information only, no medical advice generation
+- **Crisis detection**: <500ms response time requirement
 
-## 🏗️ Architecture Summary
+## 🏗️ M365 Agents SDK Architecture
 
 ```
-Web/Teams → Bot Framework → RAG Pipeline → Azure AI Search
-                         ↓
-                  Safety Engine → Nurse Escalation
+User Message → ChatManager → Agent Orchestration → Multi-Agent Response
+                    ↓               ↓                      ↓
+               SafetyAgent → ContentAgent → EscalationAgent
+                    ↓               ↓                      ↓
+              Crisis Check     Medical RAG        Nurse Callback
+               (<500ms)       (Evidence-based)    (Teams/GDPR)
 ```
 
-**Tech Stack:**
-- Node.js 20 + TypeScript
-- Microsoft Bot Framework SDK 4.x
-- Azure AI Search (free tier)
-- Azure OpenAI (GPT-4)
-- Cosmos DB Serverless
-- App Service B1
+**M365 SDK Stack:**
+- Microsoft 365 Agents SDK 2025
+- AgentBuilder patterns with foundation models
+- Multi-agent orchestration (≤3 agents)
+- Healthcare-specific agent communication protocols
+- Azure OpenAI with intelligent model selection
 
-## 📁 Project Structure
+## 📁 M365 Agents SDK Project Structure
 
 ```
 ask-eve-assist/
 ├── src/
+│   ├── index-multiagent.ts     # M365 SDK entry point - MAIN ENTRY
 │   ├── bot/
-│   │   ├── AskEveBot.ts         # Main bot class - ALWAYS CHECK SAFETY
-│   │   ├── middleware/          # Request processing
-│   │   └── dialogs/             # Conversation flows
+│   │   ├── AskEveMultiAgentBot.ts  # Multi-agent orchestration - CORE SYSTEM
+│   │   └── BotServer.ts            # Express hosting for M365 SDK
+│   ├── agents/                     # M365 Specialized Agents - CORE AGENTS
+│   │   ├── SafetyAgent.ts          # Crisis detection <500ms - CRITICAL
+│   │   ├── ContentAgent.ts         # Medical RAG with MHRA compliance
+│   │   └── EscalationAgent.ts      # Nurse callbacks + Teams integration
 │   ├── services/
-│   │   ├── ContentService.ts    # RAG implementation - NEVER FREESTYLE
-│   │   ├── EscalationService.ts # Safety triggers - CRITICAL
-│   │   ├── SearchService.ts     # Azure AI Search wrapper
-│   │   └── TeamsService.ts      # Nurse notifications
-│   ├── models/                  # TypeScript interfaces
-│   ├── utils/                   # Helpers and logging
-│   └── index.ts                # Entry point
+│   │   ├── ChatManager.ts          # Multi-agent orchestration - CORE SERVICE
+│   │   ├── AgentCommunicationProtocol.ts  # Agent-to-agent messaging
+│   │   ├── FoundationModelManager.ts      # Intelligent model selection
+│   │   ├── ConversationFlowEngine.ts      # M365 conversation management
+│   │   └── ConversationGDPRIntegration.ts # Healthcare compliance
+│   ├── types/
+│   │   └── agents.ts              # Agent type definitions - CORE TYPES
+│   └── workflows/                 # Healthcare-specific workflows
 ├── content/
-│   └── pif-documents/          # Eve Appeal PiF approved documents
-├── config/                     # Application configuration files
-├── data/                       # Processed content and trigger definitions
+│   └── pif-documents/            # Eve Appeal PiF approved documents
+├── config/
+│   ├── safety-config.json        # Crisis triggers and emergency contacts
+│   └── entities/                 # Medical entity definitions
 ├── deploy/                     # ARM templates and deployment configs
 ├── docs/                       # Project documentation
 ├── scripts/                    # Deployment and content tools
 └── tests/                      # MUST HAVE safety tests
 ```
 
-## ⚠️ Critical Safety Rules
+## ⚠️ Critical M365 Agent Safety Rules
 
-**NEVER:**
-1. Generate medical advice beyond retrieved content
-2. Diagnose or suggest diagnoses
-3. Minimize symptoms ("probably nothing")
-4. Store personal health information
-5. Skip escalation triggers
+**MULTI-AGENT SAFETY PRINCIPLES:**
+1. **SafetyAgent ALWAYS processes messages first** - <500ms response time
+2. **Agent sequence is MANDATORY**: Safety → Content → Escalation  
+3. **Crisis detection bypasses all other agents** - immediate emergency response
+4. **No agent can skip safety validation** - safety-first architecture enforced
+5. **Agent communication must be logged** - for healthcare audit trail
 
-**ALWAYS:**
-1. Start conversations with bot disclosure
-2. Check escalation triggers BEFORE responding
-3. Cite information sources WITH DIRECT LINKS
-4. Every response MUST include source URL
-5. Offer nurse support for concerns
-6. Log safety events (anonymized)
+**HEALTHCARE COMPLIANCE:**
+1. **MHRA compliant content only** - no medical advice generation
+2. **Mandatory source attribution** - every medical fact must have source URL
+3. **Evidence-based responses only** - ContentAgent retrieves, never generates
+4. **Crisis detection mandatory** - SafetyAgent cannot be bypassed
+5. **GDPR automated data retention** - EscalationAgent manages contact data
+6. **Emergency contacts always available** - 999, Samaritans 116 123, NHS 111
 
-## 🔥 Common Tasks
+## 🔥 M365 Agents SDK Development Tasks
 
-### Starting Development
+### Starting Multi-Agent Development
 ```bash
-# First time setup
+# Setup M365 Agents SDK environment
 npm install
-cp .env.example .env.development
-# Fill in Azure credentials in .env.development
+cp .env.example .env
+# Configure M365 SDK credentials, Azure OpenAI, and Supabase
 
-# Run locally
-npm run dev
+# Start multi-agent development server
+npm run dev              # Uses src/index-multiagent.ts
 
-# Test with Bot Framework Emulator
-npm run emulator
+# Start specific components
+npm run dev:multiagent   # Multi-agent system
+npm run dev:bot          # Bot server only
+
+# Test multi-agent orchestration
+npm run test:integration # M365 SDK integration
+npm run test:bot         # Multi-agent bot functionality
+npm run test:safety      # Crisis detection <500ms
 ```
 
-### Adding New Content
+### Multi-Agent System Testing
 ```bash
-# Add document to content pipeline
-cp new-document.pdf content/documents/
+# Test individual agents
+npm run test -- SafetyAgent      # Crisis detection
+npm run test -- ContentAgent     # Medical content RAG
+npm run test -- EscalationAgent  # Nurse callbacks
+
+# Test agent orchestration
+npm run test -- ChatManager              # Agent coordination
+npm run test -- AgentCommunicationProtocol  # Agent messaging
+```
+
+### Agent Development Workflow
+```bash
+# Create new specialized agent
+# 1. Implement IAgent interface in src/agents/
+# 2. Register with ChatManager in src/services/ChatManager.ts
+# 3. Add agent communication protocols
+# 4. Test agent coordination with existing agents
 npm run content:ingest
 
 # Update search index
