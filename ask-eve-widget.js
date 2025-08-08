@@ -12,7 +12,8 @@
     const scriptTag = document.currentScript || document.querySelector('script[src*="ask-eve-widget"]');
     const config = {
         apiUrl: scriptTag?.getAttribute('data-api-url') || 'https://api.eveappeal.org.uk/chat',
-        brandColor: scriptTag?.getAttribute('data-brand-color') || '#d63384',
+        brandColor: scriptTag?.getAttribute('data-brand-color') || '#FF4D4D', // Eve Appeal red
+        silverColor: scriptTag?.getAttribute('data-silver-color') || '#DBDDED', // Eve Appeal silver
         position: scriptTag?.getAttribute('data-position') || 'bottom-right',
         welcomeMessage: scriptTag?.getAttribute('data-welcome-message') || 'Hello! I\'m Ask Eve Assist. How can I help you with gynaecological health information today?',
         crisisPhone: scriptTag?.getAttribute('data-crisis-phone') || '0808 802 0019',
@@ -34,58 +35,42 @@
             ${config.position.includes('bottom') ? 'bottom: 20px;' : 'top: 20px;'}
             ${config.position.includes('right') ? 'right: 20px;' : 'left: 20px;'}
             z-index: 999999;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
         }
         
         #ask-eve-button {
-            width: 60px;
-            height: 60px;
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
-            background: linear-gradient(135deg, ${config.brandColor} 0%, #b52759 100%);
+            background: ${config.brandColor};
             border: none;
             cursor: pointer;
-            box-shadow: 0 4px 20px rgba(214, 51, 132, 0.3);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            color: white;
+            transition: all 0.2s ease;
             position: relative;
-            overflow: hidden;
-        }
-        
-        #ask-eve-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.6s;
         }
         
         #ask-eve-button:hover {
-            transform: scale(1.05);
-            box-shadow: 0 6px 25px rgba(214, 51, 132, 0.4);
-        }
-        
-        #ask-eve-button:hover::before {
-            left: 100%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            filter: brightness(0.9);
         }
         
         #ask-eve-chat {
             position: absolute;
-            ${config.position.includes('bottom') ? 'bottom: 80px;' : 'top: 80px;'}
+            ${config.position.includes('bottom') ? 'bottom: 90px;' : 'top: 90px;'}
             ${config.position.includes('right') ? 'right: 0;' : 'left: 0;'}
-            width: 380px;
-            height: 550px;
+            width: 400px;
+            height: 600px;
             background: white;
-            border-radius: 16px;
-            box-shadow: 0 16px 48px rgba(0,0,0,0.2);
+            border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             display: none;
             flex-direction: column;
-            border: 1px solid rgba(214, 51, 132, 0.1);
+            border: 1px solid ${config.silverColor};
             overflow: hidden;
             animation: slideUp 0.3s ease-out;
         }
@@ -102,52 +87,60 @@
         }
         
         #ask-eve-header {
-            background: linear-gradient(135deg, ${config.brandColor} 0%, #b52759 100%);
-            color: white;
-            padding: 20px;
+            background: white;
+            color: #0C0B0B;
+            padding: 16px 20px;
             text-align: center;
             position: relative;
+            border-bottom: 1px solid ${config.silverColor};
         }
         
         #ask-eve-header h3 {
             margin: 0 0 4px 0;
             font-size: 18px;
-            font-weight: 600;
+            font-weight: bold;
+            color: #0C0B0B;
         }
         
         #ask-eve-header p {
             margin: 0;
             font-size: 12px;
-            opacity: 0.9;
+            color: #0C0B0B;
         }
         
         #ask-eve-close {
             position: absolute;
-            top: 15px;
-            right: 15px;
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
+            top: 12px;
+            right: 12px;
+            background: transparent;
+            border: 1px solid ${config.silverColor};
+            color: #0C0B0B;
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.2s;
+            transition: all 0.2s;
         }
         
         #ask-eve-close:hover {
-            background: rgba(255,255,255,0.3);
+            background: #F5F7FA;
+            border-color: #0C0B0B;
+        }
+        
+        #ask-eve-close:focus {
+            outline: 2px solid ${config.brandColor};
+            outline-offset: 2px;
         }
         
         #ask-eve-messages {
             flex: 1;
             overflow-y: auto;
             padding: 20px;
-            background: #fafbfc;
+            background: ${config.silverColor};
             scroll-behavior: smooth;
         }
         
@@ -160,14 +153,14 @@
         }
         
         #ask-eve-messages::-webkit-scrollbar-thumb {
-            background: rgba(214, 51, 132, 0.3);
+            background: #6E7078;
             border-radius: 2px;
         }
         
         #ask-eve-input-container {
-            padding: 20px;
+            padding: 16px 20px;
             background: white;
-            border-top: 1px solid #e9ecef;
+            border-top: 1px solid ${config.silverColor};
             display: flex;
             gap: 12px;
             align-items: end;
@@ -176,10 +169,11 @@
         #ask-eve-input {
             flex: 1;
             padding: 12px 16px;
-            border: 2px solid #e9ecef;
-            border-radius: 24px;
+            border: 1px solid ${config.silverColor};
+            border-radius: 12px;
             outline: none;
             font-size: 14px;
+            font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
             resize: none;
             min-height: 20px;
             max-height: 100px;
@@ -188,6 +182,8 @@
         
         #ask-eve-input:focus {
             border-color: ${config.brandColor};
+            outline: 2px solid ${config.brandColor};
+            outline-offset: 2px;
         }
         
         #ask-eve-send {
@@ -195,23 +191,29 @@
             background: ${config.brandColor};
             color: white;
             border: none;
-            border-radius: 24px;
+            border-radius: 12px;
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
+            font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
             transition: all 0.2s;
             white-space: nowrap;
+            min-width: 44px;
+            min-height: 44px;
         }
         
         #ask-eve-send:hover {
-            background: #b52759;
-            transform: translateY(-1px);
+            filter: brightness(0.9);
+        }
+        
+        #ask-eve-send:focus {
+            outline: 2px solid ${config.brandColor};
+            outline-offset: 2px;
         }
         
         #ask-eve-send:disabled {
-            background: #ccc;
+            background: #6E7078;
             cursor: not-allowed;
-            transform: none;
         }
         
         .ask-eve-message {
@@ -226,31 +228,32 @@
         
         .ask-eve-message-content {
             padding: 12px 16px;
-            border-radius: 16px;
-            max-width: 85%;
+            border-radius: 12px;
+            max-width: 70%;
             word-wrap: break-word;
-            line-height: 1.4;
+            line-height: 1.2;
             font-size: 14px;
+            font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
         }
         
         .ask-eve-user .ask-eve-message-content {
-            background: ${config.brandColor};
-            color: white;
+            background: #F5F7FA;
+            color: #0C0B0B;
             margin-left: auto;
             border-bottom-right-radius: 4px;
         }
         
         .ask-eve-agent .ask-eve-message-content {
             background: white;
-            border: 1px solid #e9ecef;
+            color: #0C0B0B;
+            border: 1px solid ${config.silverColor};
             border-bottom-left-radius: 4px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         
         .ask-eve-agent-name {
-            font-size: 11px;
-            color: ${config.brandColor};
-            font-weight: 600;
+            font-size: 12px;
+            color: #0C0B0B;
+            font-weight: bold;
             margin-bottom: 4px;
             display: flex;
             align-items: center;
@@ -258,10 +261,10 @@
         }
         
         .ask-eve-crisis .ask-eve-message-content {
-            background: #dc3545 !important;
-            color: white !important;
-            border: none !important;
-            box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+            background: #FFA500 !important;
+            color: #0C0B0B !important;
+            border: 1px solid #FF8C00 !important;
+            font-weight: bold;
         }
         
         .ask-eve-actions {
@@ -272,29 +275,35 @@
         }
         
         .ask-eve-action-btn {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
+            background: white;
+            border: 1px solid ${config.silverColor};
             padding: 6px 12px;
-            border-radius: 16px;
+            border-radius: 12px;
             cursor: pointer;
             font-size: 12px;
+            font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
             transition: all 0.2s;
-            color: #495057;
+            color: #0C0B0B;
+            min-height: 32px;
         }
         
         .ask-eve-action-btn:hover {
             background: ${config.brandColor};
             color: white;
             border-color: ${config.brandColor};
-            transform: translateY(-1px);
+        }
+        
+        .ask-eve-action-btn:focus {
+            outline: 2px solid ${config.brandColor};
+            outline-offset: 2px;
         }
         
         .ask-eve-response-info {
-            font-size: 10px;
-            color: #6c757d;
+            font-size: 12px;
+            color: #6E7078;
             margin-top: 8px;
             padding-top: 8px;
-            border-top: 1px solid rgba(0,0,0,0.1);
+            border-top: 1px solid ${config.silverColor};
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -304,7 +313,7 @@
             display: flex;
             align-items: center;
             gap: 4px;
-            color: #6c757d;
+            color: #6E7078;
             font-style: italic;
         }
         
@@ -316,7 +325,7 @@
         .ask-eve-typing-dot {
             width: 4px;
             height: 4px;
-            background: #6c757d;
+            background: #6E7078;
             border-radius: 50%;
             animation: typingDot 1.4s infinite ease-in-out;
         }
@@ -332,11 +341,15 @@
         
         @media (max-width: 768px) {
             #ask-eve-chat {
-                width: calc(100vw - 40px);
-                height: 70vh;
-                ${config.position.includes('bottom') ? 'bottom: 80px;' : 'top: 80px;'}
-                left: 20px !important;
-                right: 20px !important;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                width: 100%;
+                height: 100%;
+                border-radius: 0;
+                z-index: 1000000;
             }
             
             #ask-eve-widget {
@@ -345,20 +358,34 @@
                 left: auto !important;
                 top: auto !important;
             }
+            
+            #ask-eve-header {
+                padding: 20px;
+            }
+            
+            #ask-eve-close {
+                top: 16px;
+                right: 16px;
+                width: 44px;
+                height: 44px;
+                font-size: 18px;
+            }
         }
         
         @media (max-width: 480px) {
-            #ask-eve-chat {
-                width: calc(100vw - 20px);
-                height: 80vh;
-                left: 10px !important;
-                right: 10px !important;
-                border-radius: 12px;
+            #ask-eve-input-container {
+                padding: 20px;
             }
             
-            #ask-eve-widget {
-                bottom: 15px !important;
-                right: 15px !important;
+            .ask-eve-message-content {
+                max-width: 90%;
+                font-size: 16px;
+            }
+            
+            .ask-eve-action-btn {
+                min-height: 44px;
+                font-size: 14px;
+                padding: 12px 16px;
             }
         }
     `;
@@ -372,12 +399,19 @@
     const widgetHTML = `
         <div id="ask-eve-widget">
             <button id="ask-eve-button" onclick="askEveWidget.toggle()" aria-label="Open Ask Eve Assist Chat">
-                🌺
+                <svg width="24" height="24" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15 26.25c-.6 0-1.15-.25-1.55-.65C10.2 22.9 3.75 17.1 3.75 11.25c0-4.15 3.35-7.5 7.5-7.5 1.95 0 3.75.75 5.1 2.1.35.35.35.9 0 1.25-.35.35-.9.35-1.25 0C14.2 6.2 12.5 5.625 11.25 5.625c-3.1 0-5.625 2.525-5.625 5.625 0 4.9 5.4 9.85 9.375 13.05 3.975-3.2 9.375-8.15 9.375-13.05 0-3.1-2.525-5.625-5.625-5.625-1.75 0-2.95.575-3.85 1.475-.35.35-.9.35-1.25 0-.35-.35-.35-.9 0-1.25C14.5 4.25 16.3 3.75 18.75 3.75c4.15 0 7.5 3.35 7.5 7.5 0 5.85-6.45 11.65-9.7 14.35-.4.4-.95.65-1.55.65z" fill="currentColor"/>
+                </svg>
             </button>
             <div id="ask-eve-chat">
                 <div id="ask-eve-header">
                     <button id="ask-eve-close" onclick="askEveWidget.close()" aria-label="Close chat">×</button>
-                    <h3>🌺 ${config.title}</h3>
+                    <h3>
+                        <svg width="16" height="16" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; margin-right: 8px; vertical-align: text-bottom;">
+                            <path d="M15 26.25c-.6 0-1.15-.25-1.55-.65C10.2 22.9 3.75 17.1 3.75 11.25c0-4.15 3.35-7.5 7.5-7.5 1.95 0 3.75.75 5.1 2.1.35.35.35.9 0 1.25-.35.35-.9.35-1.25 0C14.2 6.2 12.5 5.625 11.25 5.625c-3.1 0-5.625 2.525-5.625 5.625 0 4.9 5.4 9.85 9.375 13.05 3.975-3.2 9.375-8.15 9.375-13.05 0-3.1-2.525-5.625-5.625-5.625-1.75 0-2.95.575-3.85 1.475-.35.35-.9.35-1.25 0-.35-.35-.35-.9 0-1.25C14.5 4.25 16.3 3.75 18.75 3.75c4.15 0 7.5 3.35 7.5 7.5 0 5.85-6.45 11.65-9.7 14.35-.4.4-.95.65-1.55.65z" fill="currentColor"/>
+                        </svg>
+                        ${config.title}
+                    </h3>
                     <p>${config.subtitle}</p>
                 </div>
                 <div id="ask-eve-messages"></div>
@@ -412,7 +446,7 @@
                 const button = document.getElementById('ask-eve-button');
                 
                 chat.style.display = 'flex';
-                button.innerHTML = '✕';
+                button.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
                 this.isOpen = true;
                 
                 // Show welcome message if first time
@@ -446,7 +480,7 @@
                 const button = document.getElementById('ask-eve-button');
                 
                 chat.style.display = 'none';
-                button.innerHTML = '🌺';
+                button.innerHTML = '<svg width="24" height="24" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 26.25c-.6 0-1.15-.25-1.55-.65C10.2 22.9 3.75 17.1 3.75 11.25c0-4.15 3.35-7.5 7.5-7.5 1.95 0 3.75.75 5.1 2.1.35.35.35.9 0 1.25-.35.35-.9.35-1.25 0C14.2 6.2 12.5 5.625 11.25 5.625c-3.1 0-5.625 2.525-5.625 5.625 0 4.9 5.4 9.85 9.375 13.05 3.975-3.2 9.375-8.15 9.375-13.05 0-3.1-2.525-5.625-5.625-5.625-1.75 0-2.95.575-3.85 1.475-.35.35-.9.35-1.25 0-.35-.35-.35-.9 0-1.25C14.5 4.25 16.3 3.75 18.75 3.75c4.15 0 7.5 3.35 7.5 7.5 0 5.85-6.45 11.65-9.7 14.35-.4.4-.95.65-1.55.65z" fill="currentColor"/></svg>';
                 this.isOpen = false;
             },
 
@@ -522,7 +556,8 @@
                         this.addMessage(
                             `I apologize, but I'm having technical difficulties. Please contact The Eve Appeal directly:\n\n📞 **${config.nurseLine}** - Nurse line\n📞 **999** - Emergency services\n\nOur team is here to help you.`,
                             false, 
-                            'System'
+                            'System',
+                            { isEmergency: true }
                         );
                     }
                 } catch (error) {
@@ -532,7 +567,8 @@
                     this.addMessage(
                         `I'm unable to connect right now. Please try again in a moment, or contact The Eve Appeal directly:\n\n📞 **${config.nurseLine}** - For health support\n📞 **999** - For emergencies\n\nWe're here to help you.`,
                         false,
-                        'System'
+                        'System',
+                        { isEmergency: true }
                     );
                     
                     this.trackEvent('connection_error', { error: error.message });
@@ -553,14 +589,14 @@
                 messageElement.id = messageId;
                 messageElement.className = 'ask-eve-message ' + (isUser ? 'ask-eve-user' : 'ask-eve-agent');
                 
-                if (responseData && responseData.isCrisis) {
+                if (responseData && (responseData.isCrisis || responseData.isEmergency)) {
                     messageElement.classList.add('ask-eve-crisis');
                 }
                 
                 let content = '<div class="ask-eve-message-content">';
                 
                 if (!isUser && agentName) {
-                    content += '<div class="ask-eve-agent-name">🤖 ' + agentName + '</div>';
+                    content += '<div class="ask-eve-agent-name">' + agentName + '</div>';
                 }
                 
                 // Format text with basic markdown support
@@ -584,9 +620,11 @@
                 // Add response info for agent messages
                 if (responseData && !isUser) {
                     content += '<div class="ask-eve-response-info">';
-                    content += '<span>Response: ' + responseData.responseTime + 'ms</span>';
-                    if (responseData.emergencyContacts) {
-                        content += '<span>🚨 Emergency contacts included</span>';
+                    if (responseData.responseTime) {
+                        content += '<span>Response: ' + responseData.responseTime + 'ms</span>';
+                    }
+                    if (responseData.emergencyContacts || responseData.isEmergency || responseData.isCrisis) {
+                        content += '<span style="color: #FFA500; font-weight: bold;">⚠️ Emergency contacts included</span>';
                     }
                     content += '</div>';
                 }
@@ -611,7 +649,7 @@
                 typingElement.className = 'ask-eve-message ask-eve-agent';
                 typingElement.innerHTML = `
                     <div class="ask-eve-message-content">
-                        <div class="ask-eve-agent-name">🤖 Ask Eve Assist</div>
+                        <div class="ask-eve-agent-name">Ask Eve Assist</div>
                         <div class="ask-eve-typing">
                             <span>Thinking</span>
                             <div class="ask-eve-typing-dots">

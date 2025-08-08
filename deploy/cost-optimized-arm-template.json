@@ -34,7 +34,9 @@
     "searchServiceName": "[concat(parameters('appName'), '-search')]",
     "storageAccountName": "[replace(concat(parameters('appName'), 'storage'), '-', '')]",
     "appInsightsName": "[concat(parameters('appName'), '-insights')]",
-    "logAnalyticsName": "[concat(parameters('appName'), '-logs')]"
+    "logAnalyticsName": "[concat(parameters('appName'), '-logs')]",
+    "cdnProfileName": "[concat(parameters('appName'), '-cdn')]",
+    "cdnEndpointName": "[concat(parameters('appName'), '-widget')]"
   },
   "resources": [
     {
@@ -255,9 +257,151 @@
       "metadata": {
         "description": "Cost-optimized monitoring with 5% sampling (£2-4/month vs £10-15/month full monitoring)"
       }
+    },
+    {
+      "type": "Microsoft.Cdn/profiles",
+      "apiVersion": "2021-06-01",
+      "name": "[variables('cdnProfileName')]",
+      "location": "Global",
+      "sku": {
+        "name": "Standard_Microsoft"
+      },
+      "properties": {},
+      "tags": {
+        "Purpose": "Widget Distribution",
+        "Environment": "[parameters('environment')]",
+        "CostOptimization": "true",
+        "HealthcareCompliant": "true"
+      },
+      "metadata": {
+        "description": "CDN for widget distribution - £1-2/month for global performance"
+      }
+    },
+    {
+      "type": "Microsoft.Cdn/profiles/endpoints",
+      "apiVersion": "2021-06-01",
+      "name": "[concat(variables('cdnProfileName'), '/', variables('cdnEndpointName'))]",
+      "location": "Global",
+      "dependsOn": [
+        "[resourceId('Microsoft.Cdn/profiles', variables('cdnProfileName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ],
+      "properties": {
+        "originHostHeader": "[replace(replace(reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))).primaryEndpoints.blob,'https://',''),'/','')]",
+        "origins": [
+          {
+            "name": "widget-storage-origin",
+            "properties": {
+              "hostName": "[replace(replace(reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))).primaryEndpoints.blob,'https://',''),'/','')]",
+              "httpPort": 80,
+              "httpsPort": 443,
+              "priority": 1,
+              "weight": 1000,
+              "enabled": true
+            }
+          }
+        ],
+        "isHttpAllowed": false,
+        "isHttpsAllowed": true,
+        "queryStringCachingBehavior": "IgnoreQueryString",
+        "isCompressionEnabled": true,
+        "contentTypesToCompress": [
+          "application/javascript",
+          "text/css",
+          "text/html",
+          "text/javascript",
+          "text/plain",
+          "application/json",
+          "image/svg+xml"
+        ],
+        "deliveryPolicy": {
+          "rules": [
+            {
+              "name": "WidgetCaching",
+              "order": 1,
+              "conditions": [
+                {
+                  "name": "UrlPath",
+                  "parameters": {
+                    "@odata.type": "#Microsoft.Azure.Cdn.Models.DeliveryRuleUrlPathMatchConditionParameters",
+                    "operator": "Contains",
+                    "matchValues": [
+                      "ask-eve-widget.js"
+                    ],
+                    "transforms": []
+                  }
+                }
+              ],
+              "actions": [
+                {
+                  "name": "CacheExpiration",
+                  "parameters": {
+                    "@odata.type": "#Microsoft.Azure.Cdn.Models.DeliveryRuleCacheExpirationActionParameters",
+                    "cacheBehavior": "Override",
+                    "cacheType": "All",
+                    "cacheDuration": "1.00:00:00"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "AssetCaching",
+              "order": 2,
+              "conditions": [
+                {
+                  "name": "UrlFileExtension",
+                  "parameters": {
+                    "@odata.type": "#Microsoft.Azure.Cdn.Models.DeliveryRuleUrlFileExtensionMatchConditionParameters",
+                    "operator": "Contains",
+                    "matchValues": [
+                      "svg",
+                      "css",
+                      "js"
+                    ],
+                    "transforms": []
+                  }
+                }
+              ],
+              "actions": [
+                {
+                  "name": "CacheExpiration",
+                  "parameters": {
+                    "@odata.type": "#Microsoft.Azure.Cdn.Models.DeliveryRuleCacheExpirationActionParameters",
+                    "cacheBehavior": "Override",
+                    "cacheType": "All",
+                    "cacheDuration": "7.00:00:00"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "tags": {
+        "Purpose": "Widget CDN Endpoint",
+        "Environment": "[parameters('environment')]",
+        "CostOptimization": "true"
+      },
+      "metadata": {
+        "description": "CDN endpoint for Ask Eve widget with optimized caching policies"
+      }
     }
   ],
   "outputs": {
+    "cdnEndpoint": {
+      "type": "string",
+      "value": "[concat('https://', variables('cdnEndpointName'), '.azureedge.net')]",
+      "metadata": {
+        "description": "CDN endpoint URL for widget distribution"
+      }
+    },
+    "widgetScriptUrl": {
+      "type": "string",
+      "value": "[concat('https://', variables('cdnEndpointName'), '.azureedge.net/ask-eve-assist/ask-eve-widget.js')]",
+      "metadata": {
+        "description": "Direct URL for Ask Eve widget script integration"
+      }
+    },
     "containerAppUrl": {
       "type": "string",
       "value": "[concat('https://', reference(resourceId('Microsoft.App/containerApps', variables('containerAppName'))).configuration.ingress.fqdn)]",
@@ -281,7 +425,7 @@
     },
     "monthlyCostEstimate": {
       "type": "string",
-      "value": "£16-23/month (55-60% reduction)",
+      "value": "£17-25/month (55-60% reduction with CDN)",
       "metadata": {
         "description": "Estimated monthly cost of the cost-optimized architecture"
       }
@@ -294,7 +438,8 @@
         "tableStorage": "£2-5/month (vs £15-25 Cosmos DB)",
         "applicationInsights": "£2-4/month (5% sampling)",
         "blobStorage": "£1/month",
-        "totalSavings": "£19-29/month vs previous architecture"
+        "cdnStandardMicrosoft": "£1-2/month (global widget distribution)",
+        "totalSavings": "£18-28/month vs previous architecture"
       },
       "metadata": {
         "description": "Detailed cost breakdown of the optimized architecture"
