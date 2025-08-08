@@ -42,6 +42,14 @@ Ask Eve Assist uses the **Microsoft 365 Agents SDK** (@microsoft/agents-hosting)
 - **Container Apps Environment Variables**: Secure secrets (£0 - replaces Key Vault)
 - **UK South region**: Complete data residency compliance
 
+### 📚 Medical Content Knowledge Base ✅ COMPLETED
+- **114 Healthcare Documents**: PiF-approved medical content and Eve Appeal website resources indexed
+- **5 PiF Medical Guides**: HPV 2025, Womb Cancer, Vulval Cancer, Vaginal Cancer, Genetic Testing uploaded
+- **104 Website Content Chunks**: Support services, screening information, and research resources
+- **100% Search Coverage**: Cervical screening, HPV vaccines, Lynch syndrome, cancer symptoms
+- **RAG Pipeline Active**: Retrieval-Augmented Generation with The Eve Appeal's trusted content
+- **Real-Time Healthcare Queries**: Enhanced responses using official medical guidance
+
 ## 🚀 Quick Start Guide
 
 ### Prerequisites

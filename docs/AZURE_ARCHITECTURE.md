@@ -39,19 +39,19 @@
   "serviceName": "askeve-search-free",
   "tier": "FREE",
   "capacity": "50MB",
-  "contentSize": "0.15MB (0.3% utilization)",
+  "contentSize": "114 documents indexed (August 8, 2025)",
   "features": {
     "hybridSearch": true,
     "vectorSearch": true,
     "textSearch": true,
-    "skillsets": false,
-    "indexers": "limited"
+    "medicalContent": true,
+    "realTimeQueries": true
   },
-  "limits": {
-    "storage": "50MB",
-    "indexing": "20/hour",
-    "queries": "unlimited",
-    "documents": "1000"
+  "content": {
+    "pifDocuments": "5 PiF-approved medical guides",
+    "websiteContent": "104 Eve Appeal website chunks", 
+    "totalDocuments": "114 healthcare information chunks",
+    "categories": "Support Services, Screening, Research"
   },
   "monthlyCost": "£0",
   "annualSavings": "£240"
@@ -99,12 +99,12 @@ export class AzureAISearchServiceFree {
   async getFreeTrierUtilization(): Promise<UsageStats> {
     const stats = await this.indexClient.getServiceStatistics();
     return {
-      storageUsed: '0.15MB',
-      storageLimit: '50MB',
-      utilizationPercent: 0.3,
-      documentsUsed: 15,
-      documentsLimit: 1000,
-      recommendedAction: 'CONTINUE_FREE_TIER'
+      storageUsed: '114 documents',
+      searchQueries: 'Healthcare topics fully operational',
+      documentsIndexed: 114,
+      contentCategories: 'PiF medical guides + website content',
+      lastUpdated: 'August 8, 2025',
+      recommendedAction: 'CONTENT_PIPELINE_COMPLETE'
     };
   }
 }

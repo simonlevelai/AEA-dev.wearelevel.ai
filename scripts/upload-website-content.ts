@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 
 /**
- * Upload processed PiF content to Azure AI Search
+ * Upload website content to Azure AI Search
  */
 
 import { SearchClient, AzureKeyCredential } from '@azure/search-documents';
@@ -27,7 +27,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('🚀 Starting Azure AI Search content upload...');
+  console.log('🚀 Starting Azure AI Search website content upload...');
   console.log(`📍 Endpoint: ${searchEndpoint}`);
   console.log(`📋 Index: ${indexName}`);
 
@@ -38,28 +38,28 @@ async function main() {
     new AzureKeyCredential(searchKey)
   );
 
-  // Load processed content
-  const contentPath = path.join(__dirname, '../data/pif-chunks.json');
+  // Load website content
+  const contentPath = path.join(__dirname, '../content/website-content/eve-appeal-website-content.json');
   if (!fs.existsSync(contentPath)) {
-    console.error(`❌ Content file not found: ${contentPath}`);
+    console.error(`❌ Website content file not found: ${contentPath}`);
     process.exit(1);
   }
 
   const rawContent = fs.readFileSync(contentPath, 'utf8');
-  const contentData = JSON.parse(rawContent);
+  const websiteData = JSON.parse(rawContent);
   
-  console.log(`📄 Loaded ${contentData.length} content chunks`);
+  console.log(`📄 Loaded website content with ${websiteData.totalChunks} chunks`);
 
-  // Transform data for search index
-  const searchDocuments: ContentChunk[] = contentData.map((chunk: any, index: number) => ({
-    id: chunk.id || `chunk-${index}`,
-    content: chunk.content || chunk.text || '',
-    title: chunk.title || chunk.source || `Content Chunk ${index + 1}`,
-    source: chunk.source || chunk.sourceUrl || 'The Eve Appeal',
-    category: chunk.category || 'Healthcare Information'
+  // Transform website content for search index
+  const searchDocuments: ContentChunk[] = websiteData.content.map((chunk: any) => ({
+    id: chunk.id,
+    content: chunk.content,
+    title: chunk.title,
+    source: chunk.source,
+    category: chunk.category
   }));
 
-  console.log(`🔄 Transformed ${searchDocuments.length} documents for upload`);
+  console.log(`🔄 Transformed ${searchDocuments.length} website documents for upload`);
 
   try {
     // Upload documents in batches
@@ -88,31 +88,32 @@ async function main() {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    console.log(`✅ Successfully uploaded ${uploaded}/${searchDocuments.length} documents to Azure AI Search`);
+    console.log(`✅ Successfully uploaded ${uploaded}/${searchDocuments.length} website documents to Azure AI Search`);
     
-    // Test search functionality
-    console.log('🔍 Testing search functionality...');
-    const testResults = await searchClient.search('cervical screening', {
-      top: 3,
-      select: ['id', 'title', 'source']
-    });
+    // Test search functionality with healthcare topics
+    console.log('🔍 Testing search functionality with healthcare content...');
+    const testQueries = ['HPV vaccine', 'cervical screening', 'ovarian cancer symptoms'];
+    
+    for (const query of testQueries) {
+      const testResults = await searchClient.search(query, {
+        top: 2,
+        select: ['id', 'title', 'source']
+      });
 
-    console.log('📊 Test search results:');
-    for await (const result of testResults.results) {
-      console.log(`   - ${result.document.title} (${result.document.source})`);
+      console.log(`📊 Test results for "${query}":`);
+      for await (const result of testResults.results) {
+        console.log(`   - ${result.document.title} (${result.document.source})`);
+      }
     }
 
-    console.log('🎉 Azure AI Search content upload completed successfully!');
+    console.log('🎉 Azure AI Search website content upload completed successfully!');
 
   } catch (error) {
-    console.error('❌ Error uploading content:', error);
+    console.error('❌ Error uploading website content:', error);
     process.exit(1);
   }
 }
 
-// Run the upload if this script is called directly
 if (require.main === module) {
   main().catch(console.error);
 }
-
-export { main as uploadToAzureSearch };
