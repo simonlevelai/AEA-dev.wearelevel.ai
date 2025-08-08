@@ -16,7 +16,9 @@ export const TriggerCategorySchema = z.enum([
   'mental_health_concerns',
   'social_concerns',
   'emotional_support',
-  'general_wellbeing'
+  'general_wellbeing',
+  'callback_request',
+  'crisis_support'
 ]);
 export type TriggerCategory = z.infer<typeof TriggerCategorySchema>;
 
@@ -76,6 +78,17 @@ export const CrisisResponseSchema = z.object({
 });
 export type CrisisResponse = z.infer<typeof CrisisResponseSchema>;
 
+// Contact details schema for escalations
+export const ContactDetailsSchema = z.object({
+  name: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+  preferredContact: z.enum(['phone', 'email', 'both']),
+  bestTimeToCall: z.string().optional(),
+  alternativeContact: z.string().optional()
+});
+export type ContactDetailsForEscalation = z.infer<typeof ContactDetailsSchema>;
+
 export const EscalationEventSchema = z.object({
   id: z.string(),
   userId: z.string(),
@@ -87,7 +100,12 @@ export const EscalationEventSchema = z.object({
   notificationSent: z.boolean(),
   nurseTeamAlerted: z.boolean(),
   responseGenerated: z.boolean(),
-  metadata: z.record(z.unknown()).optional()
+  metadata: z.record(z.unknown()).optional(),
+  contactDetails: ContactDetailsSchema.optional(),
+  escalationType: z.enum(['crisis', 'nurse_callback', 'general_support']).default('general_support'),
+  callbackRequested: z.boolean().default(false),
+  preferredContactMethod: z.string().optional(),
+  urgencyLevel: z.enum(['immediate', 'high', 'medium', 'low']).default('medium')
 });
 export type EscalationEvent = z.infer<typeof EscalationEventSchema>;
 
@@ -99,7 +117,10 @@ export const NotificationPayloadSchema = z.object({
   triggerMatches: z.array(z.string()),
   timestamp: z.number(),
   urgency: z.enum(['immediate', 'high', 'medium', 'low']),
-  requiresCallback: z.boolean()
+  requiresCallback: z.boolean(),
+  contactDetails: ContactDetailsSchema.optional(),
+  escalationType: z.enum(['crisis', 'nurse_callback', 'general_support']).optional(),
+  preferredContactMethod: z.string().optional()
 });
 export type NotificationPayload = z.infer<typeof NotificationPayloadSchema>;
 
@@ -117,6 +138,44 @@ export const SafetyConfigSchema = z.object({
     supervisor_alert: z.boolean(),
     log_level: z.string()
   })),
+  crisis_responses: z.object({
+    suicide_ideation: z.object({
+      message: z.string(),
+      resources: z.array(z.object({
+        name: z.string(),
+        contact: z.string(),
+        description: z.string(),
+        availability: z.string()
+      }))
+    }),
+    self_harm: z.object({
+      message: z.string(),
+      resources: z.array(z.object({
+        name: z.string(),
+        contact: z.string(),
+        description: z.string(),
+        availability: z.string()
+      }))
+    }),
+    medical_emergency: z.object({
+      message: z.string(),
+      resources: z.array(z.object({
+        name: z.string(),
+        contact: z.string(),
+        description: z.string(),
+        availability: z.string()
+      })),
+      immediate_resources: z.array(z.string())
+    }),
+    mental_health: z.object({
+      message: z.string(),
+      immediate_resources: z.array(z.string())
+    }),
+    domestic_violence: z.object({
+      message: z.string(),
+      immediate_resources: z.array(z.string())
+    })
+  }),
   mhra_compliance: z.object({
     prohibited_patterns: z.array(z.string()),
     required_disclaimers: z.record(z.string())

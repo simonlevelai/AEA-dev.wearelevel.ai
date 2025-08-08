@@ -1,0 +1,6 @@
+cervical_screening|cervical screening,smear test,pap smear,cervical smear,smear,screening,cervical screen
+colposcopy|colposcopy,colposcopy examination,colp,colposcopy appointment,colposcopy test
+hysteroscopy|hysteroscopy,hysteroscopy examination,womb camera test,camera in womb,hysteroscopy procedure
+vulvoscopy|vulvoscopy,vulval examination,vulva examination,vulval check
+biopsy|biopsy,tissue sample,tissue biopsy,sample taken,biopsy test
+vault_smear|vault smear,vaginal vault smear,vault cytology,vault test

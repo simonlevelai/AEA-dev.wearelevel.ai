@@ -1,0 +1,6 @@
+cancer|cancer,malignancy,tumour,tumor,cancerous
+ovarian_cancer|ovarian cancer,cancer of the ovary,ovarian tumour,ovarian tumor,ovarian malignancy,ovary cancer
+cervical_cancer|cervical cancer,cancer of the cervix,cervical tumour,cervical tumor,cervix cancer
+womb_cancer|womb cancer,endometrial cancer,uterine cancer,cancer of the womb,cancer of the uterus,uterus cancer
+vulval_cancer|vulval cancer,vulvar cancer,cancer of the vulva,vulval malignancy,vulva cancer
+vaginal_cancer|vaginal cancer,cancer of the vagina,vaginal malignancy,vagina cancer

@@ -109,7 +109,7 @@ async function setupSearchIndex(): Promise<void> {
     });
 
   } catch (error) {
-    logger.error('Azure AI Search index setup failed', { error });
+    logger.error('Azure AI Search index setup failed', { error: error instanceof Error ? error : new Error(String(error)) });
     console.error('❌ Index setup failed:', error);
     
     if (error instanceof Error && error.message.includes('authentication')) {

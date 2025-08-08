@@ -1,6 +1,6 @@
 import { ContentService } from '../services/ContentService';
 import { SearchService } from '../services/SearchService';
-import { ContentChunk, SearchResponse, SourceUrlMissingError, InvalidSourceUrlError } from '../types/content';
+import { ContentChunk, SourceUrlMissingError, InvalidSourceUrlError } from '../types/content';
 
 // Mock dependencies
 jest.mock('../services/SearchService');
@@ -12,6 +12,7 @@ describe('ContentService', () => {
 
   beforeEach(() => {
     mockSearchService = new MockedSearchService() as jest.Mocked<SearchService>;
+    mockSearchService.hybridSearch = jest.fn();
     contentService = new ContentService(mockSearchService);
   });
 
@@ -32,7 +33,7 @@ describe('ContentService', () => {
         lastReviewed: new Date()
       };
 
-      mockSearchService.search.mockResolvedValue({
+      mockSearchService.hybridSearch.mockResolvedValue({
         results: [{ document: resultWithoutSourceUrl, score: 0.95 }],
         count: 1
       });
@@ -55,7 +56,7 @@ describe('ContentService', () => {
         lastReviewed: new Date()
       };
 
-      mockSearchService.search.mockResolvedValue({
+      mockSearchService.hybridSearch.mockResolvedValue({
         results: [{ document: resultWithInvalidSourceUrl, score: 0.89 }],
         count: 1
       });
@@ -79,7 +80,7 @@ describe('ContentService', () => {
         lastReviewed: new Date('2024-01-15')
       };
 
-      mockSearchService.search.mockResolvedValue({
+      mockSearchService.hybridSearch.mockResolvedValue({
         results: [{ document: validContent, score: 0.92 }],
         count: 1
       });
@@ -102,7 +103,7 @@ describe('ContentService', () => {
     it('should return not found response when no search results', async () => {
       // Arrange
       const query = 'non-existent medical term';
-      mockSearchService.search.mockResolvedValue({
+      mockSearchService.hybridSearch.mockResolvedValue({
         results: [],
         count: 0
       });
@@ -119,7 +120,7 @@ describe('ContentService', () => {
       });
     });
 
-    it('should use semantic search with proper configuration', async () => {
+    it('should use hybrid semantic search with proper configuration', async () => {
       // Arrange
       const query = 'gynecological health symptoms';
       const validContent = {
@@ -131,7 +132,7 @@ describe('ContentService', () => {
         lastReviewed: new Date()
       };
 
-      mockSearchService.search.mockResolvedValue({
+      mockSearchService.hybridSearch = jest.fn().mockResolvedValue({
         results: [{ document: validContent, score: 0.85 }],
         count: 1
       });
@@ -140,10 +141,10 @@ describe('ContentService', () => {
       await contentService.searchContent(query);
 
       // Assert
-      expect(mockSearchService.search).toHaveBeenCalledWith(query, {
-        queryType: 'semantic',
+      expect(mockSearchService.hybridSearch).toHaveBeenCalledWith(query, {
         top: 5,
-        select: ['content', 'source', 'sourceUrl', 'sourcePage', 'title']
+        select: ['content', 'source', 'sourceUrl', 'sourcePage', 'title'],
+        semanticConfigurationName: 'health-semantic-config'
       });
     });
 
@@ -151,7 +152,7 @@ describe('ContentService', () => {
       // Arrange
       const query = 'vulval cancer information';
       const searchError = new Error('Azure Search service unavailable');
-      mockSearchService.search.mockRejectedValue(searchError);
+      mockSearchService.hybridSearch.mockRejectedValue(searchError);
 
       // Act & Assert
       await expect(contentService.searchContent(query))
@@ -266,6 +267,238 @@ describe('ContentService', () => {
       expect(result.success).toBe(true);
       expect(result.chunksCreated).toBe(2);
       expect(mockSearchService.indexDocuments).toHaveBeenCalledWith(validChunks);
+    });
+  });
+
+  describe('searchWithSafetyFilter', () => {
+    it('should perform safety-filtered search and return results', async () => {
+      // Arrange
+      const query = 'cervical cancer symptoms';
+      const context = { userId: 'user123', sessionId: 'session456', isCrisis: false };
+      const validContent = {
+        id: 'test-content-safety',
+        content: 'Information about cervical cancer symptoms and screening.',
+        title: 'Cervical Cancer Symptoms',
+        source: 'Eve Appeal',
+        sourceUrl: 'https://eveappeal.org.uk/information/cervical-cancer/symptoms',
+        lastReviewed: new Date()
+      };
+
+      mockSearchService.hybridSearch = jest.fn().mockResolvedValue({
+        results: [{ document: validContent, score: 0.90 }],
+        count: 1
+      });
+
+      // Act
+      const result = await contentService.searchWithSafetyFilter(query, context);
+
+      // Assert
+      expect(result.found).toBe(true);
+      expect(result.sourceUrl).toBe(validContent.sourceUrl);
+      expect(result.relevanceScore).toBe(0.90);
+    });
+
+    it('should handle crisis situations appropriately', async () => {
+      // Arrange
+      const query = 'emergency symptoms help';
+      const context = { userId: 'user123', sessionId: 'session456', isCrisis: true };
+      const validContent = {
+        id: 'test-content-crisis',
+        content: 'Emergency gynecological symptoms information.',
+        title: 'Emergency Symptoms',
+        source: 'Eve Appeal',
+        sourceUrl: 'https://eveappeal.org.uk/information/emergencies',
+        lastReviewed: new Date()
+      };
+
+      mockSearchService.hybridSearch = jest.fn().mockResolvedValue({
+        results: [{ document: validContent, score: 0.88 }],
+        count: 1
+      });
+
+      // Act
+      const result = await contentService.searchWithSafetyFilter(query, context);
+
+      // Assert
+      expect(result.found).toBe(true);
+      expect(result.sourceUrl).toBe(validContent.sourceUrl);
+      // Safety system handles escalation separately, content still provided
+    });
+
+    it('should handle safety-filtered search errors', async () => {
+      // Arrange
+      const query = 'test query';
+      const context = { userId: 'user123' };
+      mockSearchService.hybridSearch = jest.fn().mockRejectedValue(new Error('Search service error'));
+
+      // Act & Assert
+      await expect(contentService.searchWithSafetyFilter(query, context))
+        .rejects
+        .toThrow('Search service error');
+    });
+  });
+
+  describe('searchMultipleContent', () => {
+    it('should return multiple valid search results', async () => {
+      // Arrange
+      const query = 'gynecological cancer information';
+      const maxResults = 3;
+      
+      const validContents = [
+        {
+          id: 'content-1',
+          content: 'Cervical cancer information...',
+          title: 'Cervical Cancer',
+          source: 'Eve Appeal',
+          sourceUrl: 'https://eveappeal.org.uk/information/cervical-cancer',
+          lastReviewed: new Date()
+        },
+        {
+          id: 'content-2',
+          content: 'Ovarian cancer information...',
+          title: 'Ovarian Cancer',
+          source: 'Eve Appeal',
+          sourceUrl: 'https://eveappeal.org.uk/information/ovarian-cancer',
+          lastReviewed: new Date()
+        },
+        {
+          id: 'content-3',
+          content: 'Endometrial cancer information...',
+          title: 'Endometrial Cancer',
+          source: 'Eve Appeal',
+          sourceUrl: 'https://eveappeal.org.uk/information/endometrial-cancer',
+          lastReviewed: new Date()
+        }
+      ];
+
+      mockSearchService.hybridSearch = jest.fn().mockResolvedValue({
+        results: validContents.map((doc, i) => ({ document: doc, score: 0.9 - i * 0.1 })),
+        count: 3
+      });
+
+      // Act
+      const result = await contentService.searchMultipleContent(query, maxResults);
+
+      // Assert
+      expect(mockSearchService.hybridSearch).toHaveBeenCalledWith(query, {
+        top: maxResults,
+        select: ['content', 'source', 'sourceUrl', 'sourcePage', 'title'],
+        semanticConfigurationName: 'health-semantic-config'
+      });
+      
+      expect(result.found).toBe(true);
+      expect(result.results).toHaveLength(3);
+      expect(result.totalCount).toBe(3);
+      
+      result.results.forEach((res, i) => {
+        expect(res.found).toBe(true);
+        expect(res.sourceUrl).toBe(validContents[i]!.sourceUrl);
+        expect(res.relevanceScore).toBe(0.9 - i * 0.1);
+      });
+    });
+
+    it('should filter out content with invalid source URLs', async () => {
+      // Arrange
+      const query = 'health information';
+      
+      const mixedContents = [
+        {
+          id: 'valid-content',
+          content: 'Valid Eve Appeal content...',
+          title: 'Valid Content',
+          source: 'Eve Appeal',
+          sourceUrl: 'https://eveappeal.org.uk/information/valid',
+          lastReviewed: new Date()
+        },
+        {
+          id: 'invalid-content',
+          content: 'Invalid content from other source...',
+          title: 'Invalid Content',
+          source: 'Other Source',
+          sourceUrl: 'https://example.com/invalid', // Invalid domain
+          lastReviewed: new Date()
+        }
+      ];
+
+      mockSearchService.hybridSearch = jest.fn().mockResolvedValue({
+        results: mixedContents.map((doc, i) => ({ document: doc, score: 0.8 - i * 0.1 })),
+        count: 2
+      });
+
+      // Act
+      const result = await contentService.searchMultipleContent(query, 5);
+
+      // Assert
+      expect(result.found).toBe(true);
+      expect(result.results).toHaveLength(1); // Only valid content returned
+      expect(result.totalCount).toBe(1);
+      expect(result.results[0]!.sourceUrl).toBe('https://eveappeal.org.uk/information/valid');
+    });
+
+    it('should filter out content without source URLs', async () => {
+      // Arrange
+      const query = 'health information';
+      
+      const mixedContents = [
+        {
+          id: 'valid-content',
+          content: 'Valid content with URL...',
+          title: 'Valid Content',
+          source: 'Eve Appeal',
+          sourceUrl: 'https://eveappeal.org.uk/information/valid',
+          lastReviewed: new Date()
+        },
+        {
+          id: 'no-url-content',
+          content: 'Content without source URL...',
+          title: 'No URL Content',
+          source: 'Eve Appeal',
+          // sourceUrl missing
+          lastReviewed: new Date()
+        }
+      ];
+
+      mockSearchService.hybridSearch = jest.fn().mockResolvedValue({
+        results: mixedContents.map((doc, i) => ({ document: doc, score: 0.8 - i * 0.1 })),
+        count: 2
+      });
+
+      // Act
+      const result = await contentService.searchMultipleContent(query, 5);
+
+      // Assert
+      expect(result.found).toBe(true);
+      expect(result.results).toHaveLength(1); // Only content with URL returned
+      expect(result.totalCount).toBe(1);
+      expect(result.results[0]!.sourceUrl).toBe('https://eveappeal.org.uk/information/valid');
+    });
+
+    it('should return empty results when no content found', async () => {
+      // Arrange
+      const query = 'non-existent content';
+      mockSearchService.hybridSearch = jest.fn().mockResolvedValue({
+        results: [],
+        count: 0
+      });
+
+      // Act
+      const result = await contentService.searchMultipleContent(query, 3);
+
+      // Assert
+      expect(result.found).toBe(false);
+      expect(result.results).toHaveLength(0);
+      expect(result.totalCount).toBe(0);
+    });
+
+    it('should handle multiple content search errors', async () => {
+      // Arrange
+      const query = 'test query';
+      mockSearchService.hybridSearch = jest.fn().mockRejectedValue(new Error('Search service error'));
+
+      // Act & Assert
+      await expect(contentService.searchMultipleContent(query, 3))
+        .rejects
+        .toThrow('Search service error');
     });
   });
 });

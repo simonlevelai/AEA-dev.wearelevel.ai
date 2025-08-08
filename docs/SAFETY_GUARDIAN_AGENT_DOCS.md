@@ -32,10 +32,10 @@ You are the Safety Guardian for Ask Eve Assist. Your role is CRITICAL - you stan
 ```
 src/services/EscalationService.ts     # Core escalation logic
 src/utils/safety.ts                   # Safety utilities
-content/triggers/                     # Trigger definitions
-  ├── crisis.json                    # Crisis/emergency triggers
-  ├── high-concern.json              # Medical concern triggers
-  └── emotional-support.json         # Support triggers
+data/                               # Trigger definitions
+  ├── crisis-triggers.json          # Crisis/emergency triggers
+  ├── high-concern-triggers.json    # Medical concern triggers
+  └── emotional-support-triggers.json # Support triggers
 tests/safety/                        # Safety test suites
   ├── escalation.test.ts
   ├── crisis-response.test.ts

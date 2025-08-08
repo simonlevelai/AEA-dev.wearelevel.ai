@@ -8,7 +8,7 @@ set -euo pipefail
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DEPLOY_DIR="$PROJECT_ROOT/deploy"
 
 # Default values
@@ -146,7 +146,7 @@ fi
 
 # Check if files exist
 TEMPLATE_FILE="$DEPLOY_DIR/arm-template.json"
-PARAMS_FILE="$DEPLOY_DIR/parameters/${ENVIRONMENT}.parameters.json"
+PARAMS_FILE="$DEPLOY_DIR/${ENVIRONMENT}.parameters.json"
 
 if [[ ! -f "$TEMPLATE_FILE" ]]; then
     log_error "ARM template not found: $TEMPLATE_FILE"

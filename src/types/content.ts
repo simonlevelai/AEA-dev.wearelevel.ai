@@ -32,7 +32,11 @@ export const SearchResponseSchema = z.object({
   sourceUrl: z.string().url(),
   sourcePage: z.number().optional(),
   relevanceScore: z.number().min(0).max(1).optional(),
-  title: z.string().optional()
+  title: z.string().optional(),
+  metadata: z.object({
+    bestMatchSource: z.string().optional(),
+    contentType: z.string().optional()
+  }).optional()
 });
 
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
@@ -175,7 +179,7 @@ export type ProcessingResult = z.infer<typeof ProcessingResultSchema>;
  * Error types for content pipeline
  */
 export class ContentValidationError extends Error {
-  constructor(message: string, public readonly contentId?: string) {
+  constructor(message: string, public readonly _contentId?: string) {
     super(message);
     this.name = 'ContentValidationError';
   }

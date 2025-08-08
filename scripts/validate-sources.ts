@@ -91,7 +91,7 @@ async function validateAllSources(): Promise<void> {
     }
 
   } catch (error) {
-    logger.error('Validation script failed', { error });
+    logger.error('Validation script failed', { error: error instanceof Error ? error : new Error(String(error)) });
     console.error('❌ Validation script failed:', error);
     process.exit(1);
   }

@@ -1,0 +1,7 @@
+surgery|surgery,operation,surgical procedure,hysterectomy,removal,surgical treatment,op
+radiotherapy|radiotherapy,radiation therapy,radiation treatment,radiation,radio,RT
+chemotherapy|chemotherapy,chemo,chemotherapy treatment,chemo treatment
+chemoradiation|chemoradiation,chemoradiotherapy,combined treatment,chemo and radiation
+immunotherapy|immunotherapy,immune therapy,immunotherapy treatment,immune treatment
+lletz|LLETZ,large loop excision,loop excision,LEEP,loop treatment,loop,cone biopsy
+treatment|treatment,therapy,medical treatment,treatment plan,treatment options

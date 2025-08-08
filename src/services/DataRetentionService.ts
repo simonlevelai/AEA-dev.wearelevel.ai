@@ -437,11 +437,11 @@ export class DataRetentionService {
    */
   async generateComplianceReport(): Promise<ComplianceReport> {
     const now = Date.now();
-    const metrics = await this.getStorageMetrics();
+    await this.getStorageMetrics();
     
     // Check compliance for each data category
     let complianceScore = 0;
-    let totalCategories = 4;
+    const totalCategories = 4;
 
     // Check if any data exceeds retention periods
     const conversationCompliance = this.checkRetentionCompliance('conversation_logs', this.THIRTY_DAYS);

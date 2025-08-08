@@ -121,7 +121,7 @@ async function crawlWebsite(): Promise<void> {
     process.exit(hasErrors ? 1 : 0);
 
   } catch (error) {
-    logger.error('Website crawl script failed', { error });
+    logger.error('Website crawl script failed', { error: error instanceof Error ? error : new Error(String(error)) });
     console.error('❌ Website crawl failed:', error);
     process.exit(1);
   }

@@ -31,9 +31,9 @@ scripts/validate-sources.ts          # Source URL validation
 
 ### Content Storage
 ```
-content/documents/                   # Source documents from Eve Appeal
-content/metadata/                    # Document metadata and versions
-content/indexes/                     # Azure AI Search schemas
+content/pif-documents/               # Source PiF documents from Eve Appeal
+data/source-urls.json               # Document metadata and versions
+data/processing-log.json            # Processing history and validation
 ```
 
 ### Configuration

@@ -52,8 +52,7 @@ src/adapters/                       # Channel adapters
 ### Configuration
 ```
 config/bot-config.json              # Bot settings
-config/responses.json               # Response templates
-config/conversation-flow.json       # Dialog flows
+config/conversation-flows.json      # Dialog flows and response templates
 ```
 
 ## 🎬 Core Bot Implementation

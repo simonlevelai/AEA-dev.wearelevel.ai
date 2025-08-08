@@ -53,6 +53,40 @@
     }
   },
   "crisis_responses": {
+    "suicide_ideation": {
+      "message": "I'm very concerned about what you've shared. Please reach out for urgent support right now.",
+      "resources": [
+        {
+          "name": "Samaritans",
+          "contact": "116 123",
+          "description": "Free emotional support 24/7",
+          "availability": "24/7"
+        },
+        {
+          "name": "Crisis Text Line",
+          "contact": "Text SHOUT to 85258",
+          "description": "Crisis support via text",
+          "availability": "24/7"
+        }
+      ]
+    },
+    "self_harm": {
+      "message": "I'm concerned about your wellbeing. Please reach out for support.",
+      "resources": [
+        {
+          "name": "Samaritans",
+          "contact": "116 123",
+          "description": "Free emotional support 24/7",
+          "availability": "24/7"
+        },
+        {
+          "name": "Crisis Text Line",
+          "contact": "Text SHOUT to 85258",
+          "description": "Crisis support via text",
+          "availability": "24/7"
+        }
+      ]
+    },
     "mental_health": {
       "immediate_resources": [
         "Samaritans: 116 123 (free, 24/7)",
@@ -62,11 +96,25 @@
       "message": "I'm concerned about what you've shared. Your safety is the most important thing right now."
     },
     "medical_emergency": {
+      "message": "This sounds like it could be a medical emergency. Please seek immediate medical attention.",
+      "resources": [
+        {
+          "name": "Emergency Services",
+          "contact": "999",
+          "description": "Emergency medical help",
+          "availability": "24/7"
+        },
+        {
+          "name": "NHS 111",
+          "contact": "111",
+          "description": "Non-emergency medical advice",
+          "availability": "24/7"
+        }
+      ],
       "immediate_resources": [
         "Emergency Services: 999",
         "NHS 111: Call 111"
-      ],
-      "message": "This sounds like it could be a medical emergency. Please seek immediate medical attention."
+      ]
     },
     "domestic_violence": {
       "immediate_resources": [

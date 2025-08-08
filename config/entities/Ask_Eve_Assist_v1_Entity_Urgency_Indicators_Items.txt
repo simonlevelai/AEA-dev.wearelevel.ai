@@ -1,0 +1,6 @@
+severe|severe,extreme,terrible,unbearable,awful,excruciating,intense,agonising
+heavy|heavy,excessive,a lot,flooding,profuse,substantial,soaking
+constant|constant,continuous,all the time,non-stop,persistent,ongoing,always
+worsening|getting worse,worsening,increasing,deteriorating,escalating,progressive,progressing
+urgent|urgent,emergency,can't wait,immediate,right now,asap,urgently
+unbearable|unbearable,can't cope,can't stand it,can't bear it,intolerable

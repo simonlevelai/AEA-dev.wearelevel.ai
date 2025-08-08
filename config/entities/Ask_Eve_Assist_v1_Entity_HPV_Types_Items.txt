@@ -1,0 +1,4 @@
+hpv_general|HPV,human papillomavirus,HPV virus,papillomavirus,human papilloma virus
+high_risk_hpv|high risk HPV,HR-HPV,high-risk HPV,HPV 16,HPV 18,hrHPV,high risk
+low_risk_hpv|low risk HPV,LR-HPV,low-risk HPV,HPV 6,HPV 11,lrHPV,low risk
+hpv_vaccine|HPV vaccination,HPV vaccine,cervical cancer vaccine,Gardasil,Cervarix,HPV jab,HPV immunisation

@@ -29,6 +29,13 @@
       "metadata": {
         "description": "Email address for cost and monitoring alerts"
       }
+    },
+    "budgetStartDate": {
+      "type": "string",
+      "defaultValue": "[utcNow('yyyy-MM-01')]",
+      "metadata": {
+        "description": "Budget start date"
+      }
     }
   },
   "variables": {
@@ -150,7 +157,7 @@
       "name": "[variables('searchName')]",
       "location": "[parameters('location')]", 
       "sku": { 
-        "name": "free" 
+        "name": "[if(equals(parameters('environment'), 'prod'), 'basic', 'free')]" 
       },
       "properties": {
         "replicaCount": 1,
@@ -212,7 +219,7 @@
     },
     {
       "type": "Microsoft.DocumentDB/databaseAccounts", 
-      "apiVersion": "2023-04-15",
+      "apiVersion": "2023-09-15",
       "name": "[variables('cosmosName')]",
       "location": "[parameters('location')]",
       "kind": "GlobalDocumentDB",
@@ -342,21 +349,18 @@
         "amount": "[parameters('monthlyBudgetLimit')]",
         "timeGrain": "Monthly",
         "timePeriod": {
-          "startDate": "[concat(utcNow('yyyy-MM'), '-01')]",
+          "startDate": "[parameters('budgetStartDate')]",
           "endDate": "2030-12-31"
         },
+        "category": "Cost",
         "filter": {
-          "and": [
-            {
-              "dimensions": {
-                "name": "ResourceGroupName",
-                "operator": "In",
-                "values": [
-                  "[resourceGroup().name]"
-                ]
-              }
-            }
-          ]
+          "dimensions": {
+            "name": "ResourceGroupName",
+            "operator": "In",
+            "values": [
+              "[resourceGroup().name]"
+            ]
+          }
         },
         "notifications": {
           "actual_GreaterThan_80_Percent": {

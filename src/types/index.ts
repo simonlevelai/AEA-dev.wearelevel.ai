@@ -12,7 +12,7 @@ export type MessageContext = {
     isUser: boolean;
     timestamp: Date;
   }>;
-  send: (response: AgentResponse) => Promise<void>;
+  send: (_response: AgentResponse) => Promise<void>;
   sendTyping: () => Promise<void>;
   turnContext?: TurnContext;
 };
@@ -40,6 +40,13 @@ export type SearchResponse = {
   source?: string;
   sourceUrl?: string;
   relevanceScore?: number;
+  metadata?: {
+    bestMatchSource?: string;
+    contentType?: string;
+    priorityLevel?: string;
+    medicalCategories?: string[];
+    chunkId?: string;
+  };
 };
 
 export type BotDisclosure = {
@@ -53,13 +60,14 @@ export type AgentOptions = {
   botName: string;
   safetyService: SafetyService;
   contentService: ContentService;
-  failoverManager?: import('../services/FailoverManager').FailoverManager;
+  // TODO: Re-enable after fixing service dependencies
+  // failoverManager?: import('../services/FailoverManager').FailoverManager;
 };
 
 export interface SafetyService {
-  analyzeMessage(text: string, conversationHistory: MessageContext['conversationHistory']): Promise<SafetyResult>;
+  analyzeMessage(_text: string, _conversationHistory: MessageContext['conversationHistory']): Promise<SafetyResult>;
 }
 
 export interface ContentService {
-  searchContent(query: string): Promise<SearchResponse>;
+  searchContent(_query: string): Promise<SearchResponse>;
 }

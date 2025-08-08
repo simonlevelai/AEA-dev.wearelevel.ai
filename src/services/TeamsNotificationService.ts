@@ -134,7 +134,7 @@ export class TeamsNotificationService {
           this.logger.warn('Teams notification attempt failed, retrying...', {
             escalationId: payload.escalationId,
             attempt: retryCount,
-            error: lastError.message,
+            error: lastError instanceof Error ? lastError : new Error(String(lastError)),
             remainingRetries: maxRetries - retryCount
           });
 
@@ -159,7 +159,7 @@ export class TeamsNotificationService {
     } catch (error) {
       this.logger.error('Crisis alert Teams notification failed', {
         escalationId: payload.escalationId,
-        error: (error as Error).message
+        error: error instanceof Error ? error : new Error(String(error))
       });
       throw error;
     }
@@ -303,7 +303,7 @@ export class TeamsNotificationService {
 
     // Add callback section if required
     if (callbackSection) {
-      body.push(callbackSection);
+      body.push(callbackSection as any);
     }
 
     // Add summary section
@@ -321,7 +321,7 @@ export class TeamsNotificationService {
           type: 'TextBlock',
           text: payload.summary,
           wrap: true
-        }
+        } as any
       ]
     });
 
@@ -341,22 +341,20 @@ export class TeamsNotificationService {
           text: payload.triggerMatches.slice(0, 10).join(', ') + 
                (payload.triggerMatches.length > 10 ? ` (+${payload.triggerMatches.length - 10} more)` : ''),
           wrap: true
-        }
+        } as any
       ]
     });
 
     // Add compliance section
     body.push({
       type: 'Container',
-      separator: true,
       items: [
         {
           type: 'TextBlock',
           text: '**⚖️ Important Information**',
           size: 'small',
-          weight: 'bolder',
-          color: 'default'
-        },
+          weight: 'bolder'
+        } as any,
         {
           type: 'TextBlock',
           text: `• This message contains confidential patient information protected under the Data Protection Act 2018
@@ -368,9 +366,8 @@ export class TeamsNotificationService {
 Powered by The Eve Appeal | NHS Partnership
 *Supporting women's health through AI-powered assistance*`,
           size: 'small',
-          wrap: true,
-          color: 'default'
-        }
+          wrap: true
+        } as any
       ]
     });
 

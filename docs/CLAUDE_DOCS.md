@@ -45,11 +45,13 @@ ask-eve-assist/
 │   ├── utils/                   # Helpers and logging
 │   └── index.ts                # Entry point
 ├── content/
-│   ├── documents/              # Eve Appeal PDFs/docs
-│   └── triggers/               # Escalation keywords
+│   └── pif-documents/          # Eve Appeal PiF approved documents
+├── config/                     # Application configuration files
+├── data/                       # Processed content and trigger definitions
+├── deploy/                     # ARM templates and deployment configs
+├── docs/                       # Project documentation
 ├── scripts/                    # Deployment and content tools
-├── tests/                      # MUST HAVE safety tests
-└── deploy/                     # ARM templates and configs
+└── tests/                      # MUST HAVE safety tests
 ```
 
 ## ⚠️ Critical Safety Rules

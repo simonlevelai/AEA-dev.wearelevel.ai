@@ -21,7 +21,7 @@ import { logger } from '../utils/logger';
 export class ContentService {
   private readonly EVE_APPEAL_DOMAIN = 'https://eveappeal.org.uk';
 
-  constructor(private readonly searchService: SearchService) {}
+  constructor(private readonly _searchService: SearchService) {}
 
   /**
    * Search for health content with semantic search capabilities
@@ -31,11 +31,11 @@ export class ContentService {
     try {
       logger.info('Searching content', { query });
 
-      // 1. Perform semantic search with high relevance
-      const searchResults = await this.searchService.search(query, {
-        queryType: 'semantic',
+      // 1. Perform hybrid semantic search with Eve Appeal content filter
+      const searchResults = await this.searchService.hybridSearch(query, {
         top: 5,
-        select: ['content', 'source', 'sourceUrl', 'sourcePage', 'title']
+        select: ['content', 'source', 'sourceUrl', 'sourcePage', 'title'],
+        semanticConfigurationName: 'health-semantic-config'
       });
 
       if (searchResults.results.length === 0) {
@@ -100,6 +100,119 @@ export class ContentService {
       }
       
       logger.error('Search error', { query, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Search for content with safety-aware filtering
+   * Integrates with safety systems to ensure appropriate content
+   */
+  async searchWithSafetyFilter(
+    query: string,
+    context?: {
+      userId?: string;
+      sessionId?: string;
+      isCrisis?: boolean;
+    }
+  ): Promise<SearchResponse> {
+    try {
+      logger.info('Searching with safety filter', { query, context });
+
+      // For crisis situations, we still provide accurate health information
+      // but the safety system will handle escalation separately
+      const searchResponse = await this.searchContent(query);
+
+      if (searchResponse.found) {
+        logger.info('Safety-filtered search successful', {
+          query,
+          sourceUrl: searchResponse.sourceUrl,
+          isCrisis: context?.isCrisis || false
+        });
+      }
+
+      return searchResponse;
+
+    } catch (error) {
+      logger.error('Safety-filtered search error', { query, context, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Search for multiple relevant content pieces for complex queries
+   */
+  async searchMultipleContent(
+    query: string,
+    maxResults: number = 3
+  ): Promise<{
+    found: boolean;
+    results: SearchResponse[];
+    totalCount: number;
+  }> {
+    try {
+      logger.info('Searching multiple content', { query, maxResults });
+
+      const searchResults = await this.searchService.hybridSearch(query, {
+        top: maxResults,
+        select: ['content', 'source', 'sourceUrl', 'sourcePage', 'title'],
+        semanticConfigurationName: 'health-semantic-config'
+      });
+
+      if (searchResults.results.length === 0) {
+        return {
+          found: false,
+          results: [],
+          totalCount: 0
+        };
+      }
+
+      const validResults: SearchResponse[] = [];
+
+      for (const result of searchResults.results) {
+        const document = result.document;
+
+        // Validate each result
+        if (!document.sourceUrl) {
+          logger.warn('Skipping content without source URL', { contentId: document.id });
+          continue;
+        }
+
+        if (!this.isValidEveAppealUrl(document.sourceUrl)) {
+          logger.warn('Skipping content with invalid source URL', { 
+            contentId: document.id,
+            sourceUrl: document.sourceUrl 
+          });
+          continue;
+        }
+
+        const response: SearchResponse = {
+          found: true,
+          content: document.content,
+          source: document.source,
+          sourceUrl: document.sourceUrl,
+          sourcePage: document.sourcePage,
+          relevanceScore: result.score,
+          title: document.title
+        };
+
+        validResults.push(SearchResponseSchema.parse(response));
+      }
+
+      logger.info('Multiple content search completed', {
+        query,
+        validResults: validResults.length,
+        totalFound: searchResults.results.length
+      });
+
+      return {
+        found: validResults.length > 0,
+        results: validResults,
+        totalCount: validResults.length
+      };
+
+    } catch (error) {
+      logger.error('Multiple content search error', { query, maxResults, error });
       throw error;
     }
   }

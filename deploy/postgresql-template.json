@@ -1,0 +1,107 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "type": "string",
+      "allowedValues": ["dev", "prod"],
+      "metadata": { 
+        "description": "Deployment environment" 
+      }
+    },
+    "location": {
+      "type": "string", 
+      "defaultValue": "uksouth",
+      "metadata": { 
+        "description": "Azure region (UK only for compliance)" 
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "defaultValue": "askeve_admin",
+      "metadata": {
+        "description": "PostgreSQL administrator username"
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "PostgreSQL administrator password"
+      }
+    }
+  },
+  "variables": {
+    "prefix": "askeve",
+    "serverName": "[concat(variables('prefix'), '-postgres-', parameters('environment'))]",
+    "databaseName": "askeve_conversations"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.DBforPostgreSQL/flexibleServers",
+      "apiVersion": "2023-06-01-preview",
+      "name": "[variables('serverName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_B1ms",
+        "tier": "Burstable"
+      },
+      "properties": {
+        "administratorLogin": "[parameters('adminUsername')]",
+        "administratorLoginPassword": "[parameters('adminPassword')]",
+        "version": "15",
+        "storage": {
+          "storageSizeGB": 32,
+          "autoGrow": "Enabled"
+        },
+        "backup": {
+          "backupRetentionDays": 7,
+          "geoRedundantBackup": "Disabled"
+        },
+        "highAvailability": {
+          "mode": "Disabled"
+        },
+        "network": {
+          "publicNetworkAccess": "Enabled"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DBforPostgreSQL/flexibleServers/databases",
+      "apiVersion": "2023-06-01-preview",
+      "name": "[concat(variables('serverName'), '/', variables('databaseName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', variables('serverName'))]"
+      ],
+      "properties": {
+        "charset": "UTF8",
+        "collation": "en_US.UTF8"
+      }
+    },
+    {
+      "type": "Microsoft.DBforPostgreSQL/flexibleServers/firewallRules",
+      "apiVersion": "2023-06-01-preview",
+      "name": "[concat(variables('serverName'), '/AllowAzureServices')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', variables('serverName'))]"
+      ],
+      "properties": {
+        "startIpAddress": "0.0.0.0",
+        "endIpAddress": "0.0.0.0"
+      }
+    }
+  ],
+  "outputs": {
+    "serverName": {
+      "type": "string",
+      "value": "[variables('serverName')]"
+    },
+    "databaseName": {
+      "type": "string",
+      "value": "[variables('databaseName')]"
+    },
+    "connectionString": {
+      "type": "string",
+      "value": "[concat('Server=', variables('serverName'), '.postgres.database.azure.com;Database=', variables('databaseName'), ';Port=5432;User Id=', parameters('adminUsername'), ';Password=', parameters('adminPassword'), ';Ssl Mode=Require;')]"
+    }
+  }
+}

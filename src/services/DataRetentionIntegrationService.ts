@@ -199,7 +199,7 @@ export class DataRetentionIntegrationService {
       let auditTrailPreserved = false;
 
       switch (validatedRequest.action) {
-        case 'complete_deletion':
+        case 'complete_deletion': {
           // Withdraw consent first
           const withdrawalResult = await this.userConsentService.withdrawConsent(
             validatedRequest.userId,
@@ -230,6 +230,7 @@ export class DataRetentionIntegrationService {
           dataDeleted = cleanupResult.deletedUserData;
           auditTrailPreserved = cleanupResult.preservedAuditTrail;
           break;
+        }
 
         case 'data_export':
           lifecycleStage = 'data_exported';

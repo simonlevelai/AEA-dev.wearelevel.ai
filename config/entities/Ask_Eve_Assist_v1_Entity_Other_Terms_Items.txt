@@ -1,0 +1,7 @@
+side_effects|side effects,treatment effects,adverse effects,side effect,complications
+mdt|MDT,multidisciplinary team,MDT meeting,team meeting,cancer team
+symptoms|symptoms,signs,symptom,sign,warning signs
+prevention|prevention,prevent,reducing risk,lower risk,avoid
+screening|screening,screen,check,test,regular check
+mole|mole,skin lesion,pigmented lesion,skin mark,skin mole
+mass|mass,tumour,tumor,growth,lump

@@ -182,7 +182,7 @@ export class EnhancedGDPRService {
 
       try {
         // Export user data
-        const userData = await this.userConsentService.exportUserData(validatedRequest.userId);
+        await this.userConsentService.exportUserData(validatedRequest.userId);
         
         const processingTime = Date.now() - startTime;
         const completedWithin72Hours = processingTime < this.GDPR_RESPONSE_TIMEFRAME;
@@ -489,7 +489,7 @@ export class EnhancedGDPRService {
       
       // Convert data to requested format
       let convertedData: string;
-      let fileSize: number;
+      let totalFileSize: number;
       
       switch (validatedRequest.exportFormat) {
         case 'json':
@@ -505,7 +505,7 @@ export class EnhancedGDPRService {
           convertedData = JSON.stringify(portableData, null, 2);
       }
       
-      fileSize = convertedData.length;
+      totalFileSize = convertedData.length;
       
       // Generate download URL
       const downloadUrl = `https://api.example.com/gdpr-exports/${validatedRequest.requestId}`;
@@ -515,7 +515,7 @@ export class EnhancedGDPRService {
         requestId: validatedRequest.requestId,
         userId: this.sanitizeUserId(validatedRequest.userId),
         format: validatedRequest.exportFormat,
-        fileSize
+        fileSize: totalFileSize
       });
 
       return {
@@ -526,7 +526,7 @@ export class EnhancedGDPRService {
         structuredData: true,
         downloadUrl,
         expiresAt,
-        fileSize
+        fileSize: totalFileSize
       };
 
     } catch (error) {

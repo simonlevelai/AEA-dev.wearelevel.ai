@@ -24,9 +24,9 @@ tests/safety/                        # Comprehensive safety tests
 
 ### Configuration & Data
 ```
-content/triggers/crisis.json         # Crisis/emergency triggers
-content/triggers/high-concern.json   # Medical concern triggers  
-content/triggers/emotional-support.json # Support triggers
+data/crisis-triggers.json         # Crisis/emergency triggers
+data/high-concern-triggers.json   # Medical concern triggers  
+data/emotional-support-triggers.json # Support triggers
 config/safety-config.json            # Safety system configuration
 ```
 

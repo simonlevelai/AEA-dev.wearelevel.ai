@@ -1,11 +1,11 @@
 import { TurnContext, MessageFactory, CardFactory } from 'botbuilder';
-import { AskEveBot } from '../bot/AskEveBot';
+import { AgentsSDKBot } from '../bot/AgentsSDKBot';
 import { MessageContext, AgentResponse } from '../types';
 
 export abstract class BaseAdapter {
-  protected bot: AskEveBot;
+  protected bot: AgentsSDKBot;
 
-  constructor(bot: AskEveBot) {
+  constructor(bot: AgentsSDKBot) {
     this.bot = bot;
   }
 
@@ -77,8 +77,7 @@ export abstract class BaseAdapter {
 
   public async processMessage(turnContext: TurnContext): Promise<void> {
     try {
-      const context = this.createMessageContext(turnContext);
-      await this.bot.handleUserMessage(context);
+      await this.bot.handleMessage(turnContext);
     } catch (error) {
       console.error('Adapter error processing message:', error);
       await turnContext.sendActivity('I apologize, but I encountered an error processing your message. Please try again.');

@@ -325,11 +325,11 @@ class PiFDocumentProcessor {
     const sourceUrlsPath = path.join(__dirname, '../data/source-urls.json');
     
     // Group chunks by document
-    const documentSources: any = {};
+    const documentSources: Record<string, any> = {};
     
     for (const chunk of chunks) {
       const chunkIdParts = chunk.id.split('-chunk-');
-      const docId = chunkIdParts.length > 1 ? chunkIdParts[0] : chunk.id;
+      const docId = chunkIdParts.length > 1 && chunkIdParts[0] ? chunkIdParts[0] : chunk.id;
       
       if (!documentSources[docId]) {
         documentSources[docId] = {

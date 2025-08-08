@@ -328,7 +328,7 @@ export class CrisisDetectionTestFramework {
       );
 
     // Overall pass/fail determination
-    let passed = severityMatch && confidenceMatch && expectedTriggersFound;
+    const passed = severityMatch && confidenceMatch && expectedTriggersFound;
     let failureReason: string | undefined;
 
     // Generate failure reason

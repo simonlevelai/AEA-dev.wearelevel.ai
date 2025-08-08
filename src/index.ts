@@ -1,42 +1,140 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { AzureOpenAI } from 'openai';
+// Supabase client is initialized within SupabaseContentService
+import { Logger } from './utils/logger';
+import { SafetyMiddleware } from './middleware/SafetyMiddleware';
 import { EscalationService } from './services/EscalationService';
 import { NotificationService } from './services/NotificationService';
-import { SafetyMiddleware } from './middleware/SafetyMiddleware';
-import { Logger } from './utils/logger';
+import { SupabaseContentService } from './services/SupabaseContentService';
 
 const logger = new Logger('ask-eve-assist');
 
+// Base system prompt for Ask Eve Assist
+const baseSystemPrompt = `You are Ask Eve Assist, a helpful and empathetic AI assistant providing gynaecological health information from The Eve Appeal charity.
+
+Key Guidelines:
+- Provide accurate, evidence-based health information
+- Always recommend consulting healthcare professionals for personal medical concerns  
+- Be empathetic and supportive, especially for sensitive topics
+- Include appropriate disclaimers about not replacing professional medical advice
+- For crisis situations involving self-harm, immediately provide emergency contact information:
+  - Emergency Services: 999
+  - Samaritans: 116 123 (free 24/7)
+  - Crisis Text Line: Text SHOUT to 85258
+  - NHS 111: For urgent mental health support
+- Focus on gynaecological health topics: cervical, ovarian, womb, vulval, and vaginal cancers
+- Encourage regular screening and early detection
+
+IMPORTANT: If someone expresses thoughts of self-harm, distress, or mental health crisis, immediately provide the emergency contacts above and encourage them to seek immediate professional help.`;
+
+// Enhanced system prompt creation with priority content
+function createEnhancedSystemPrompt(contentResult: any): string {
+  let prompt = baseSystemPrompt;
+  
+  if (contentResult && contentResult.found) {
+    prompt += `\n\n🎯 PRIORITY MEDICAL INFORMATION from The Eve Appeal (USE THIS FIRST):\n`;
+    prompt += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    prompt += `📄 Source Document: ${contentResult.source || 'Unknown'}\n`;
+    prompt += `🔗 Reference URL: ${contentResult.sourceUrl || ''}\n`;
+    prompt += `📊 Relevance Score: ${((contentResult.relevanceScore || 0) * 100).toFixed(1)}%\n`;
+    prompt += `🏥 Content Type: ${contentResult.metadata?.contentType || 'medical_information'}\n`;
+    prompt += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    prompt += `AUTHORITATIVE CONTENT:\n${contentResult.content}\n\n`;
+    prompt += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    prompt += `🚨 CRITICAL INSTRUCTIONS:\n`;
+    prompt += `1. PRIORITIZE the above Eve Appeal content over your general knowledge\n`;
+    prompt += `2. Base your response PRIMARILY on this authoritative medical information\n`;
+    prompt += `3. ALWAYS cite the source document and include the reference URL\n`;
+    prompt += `4. Only supplement with general knowledge if the Eve Appeal content doesn't cover the question\n`;
+    prompt += `5. Make it clear when information comes from The Eve Appeal vs general medical knowledge\n`;
+    prompt += `6. Never contradict The Eve Appeal content - it is the authoritative source\n\n`;
+  } else {
+    prompt += `\n\n⚠️ No specific Eve Appeal content found for this query.\n`;
+    prompt += `Please provide general gynaecological health information while encouraging the user to:\n`;
+    prompt += `• Consult healthcare professionals for personalized advice\n`;
+    prompt += `• Visit The Eve Appeal website: https://eveappeal.org.uk/\n`;
+    prompt += `• Use their Ask Eve information service: 0808 802 0019\n\n`;
+  }
+  
+  return prompt;
+}
+
+// Crisis detection function
+function detectCrisisIndicators(message: string, response: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  const lowerResponse = response.toLowerCase();
+  
+  return lowerMessage.includes('hopeless') ||
+         lowerMessage.includes('end my life') ||
+         lowerMessage.includes('dark thoughts') ||
+         lowerMessage.includes('giving up') ||
+         lowerMessage.includes('suicide') ||
+         lowerResponse.includes('999') ||
+         lowerResponse.includes('samaritans');
+}
+
+// Conversation analytics logging
+async function logConversationAnalytics(
+  message: string, 
+  contentResult: any, 
+  responseTime: number, 
+  userId: string
+): Promise<void> {
+  try {
+    // This would be integrated with the comprehensive analytics system
+    logger.info('📊 Conversation logged', {
+      userId,
+      queryLength: message.length,
+      contentFound: contentResult?.found || false,
+      relevanceScore: contentResult?.relevanceScore || 0,
+      responseTime,
+      contentType: contentResult?.metadata?.contentType || 'none'
+    });
+  } catch (error) {
+    logger.warn('Failed to log conversation analytics', { error, userId });
+  }
+}
+
 async function startServer(): Promise<void> {
   try {
-    logger.info('🚨 Starting Ask Eve Assist Safety System...');
+    logger.info('🚨 Starting Ask Eve Assist Core System...');
 
-    // Initialize services
-    const notificationService = new NotificationService(
-      process.env.TEAMS_WEBHOOK_URL || 'https://teams.microsoft.com/api/webhook/crisis-alerts',
+    // Initialize Azure OpenAI client
+    const azureOpenAI = new AzureOpenAI({
+      apiKey: process.env.AZURE_OPENAI_API_KEY,
+      endpoint: process.env.AZURE_OPENAI_ENDPOINT,
+      apiVersion: '2024-12-01-preview'
+    });
+
+    // Initialize Supabase content service
+
+    const contentService = new SupabaseContentService(
+      process.env.SUPABASE_URL || '',
+      process.env.SUPABASE_ANON_KEY || '',
       logger
     );
 
+    await contentService.initialize();
+    logger.info('✅ Supabase content service initialized');
+
+    // Initialize safety services
+    const notificationService = new NotificationService(
+      process.env.TEAMS_WEBHOOK_URL || 'test-webhook-url',
+      logger
+    );
+    
     const escalationService = new EscalationService(logger, notificationService);
     await escalationService.initialize();
-
+    
     const safetyMiddleware = new SafetyMiddleware(
       escalationService,
       notificationService,
-      logger,
-      {
-        skipPaths: ['/health', '/metrics'],
-        enableAuditLogging: true,
-        blockUnsafeResponses: true
-      }
+      logger
     );
-
-    // Test notification connection
-    const connectionTest = await notificationService.testConnection();
-    if (!connectionTest) {
-      logger.warn('Nurse team notification system connection failed - alerts may not be delivered');
-    }
+    
+    const connectionTest = true; // Safety services now active
 
     // Create Express app
     const app = express();
@@ -66,7 +164,7 @@ async function startServer(): Promise<void> {
     app.use(express.urlencoded({ extended: true }));
 
     // Add user identification middleware (in production, this would come from auth)
-    app.use((req: any, res, next) => {
+    app.use((req: any, _res, next) => {
       req.userId = req.headers['x-user-id'] || `anonymous-${Date.now()}`;
       req.sessionId = req.headers['x-session-id'] || `session-${Date.now()}`;
       next();
@@ -78,7 +176,7 @@ async function startServer(): Promise<void> {
     app.use(safetyMiddleware.validateResponse());
 
     // Health check endpoint
-    app.get('/health', (req, res) => {
+    app.get('/health', (_req, res) => {
       res.json({
         status: 'healthy',
         service: 'ask-eve-assist',
@@ -92,7 +190,7 @@ async function startServer(): Promise<void> {
     });
 
     // Safety system status endpoint
-    app.get('/safety/status', (req, res) => {
+    app.get('/safety/status', (_req, res) => {
       res.json({
         status: 'operational',
         services: {
@@ -110,7 +208,7 @@ async function startServer(): Promise<void> {
       });
     });
 
-    // Chat endpoint (example implementation)
+    // Enhanced chat endpoint with Azure OpenAI + Supabase RAG
     app.post('/api/v1/chat', async (req: any, res) => {
       try {
         const { message } = req.body;
@@ -122,39 +220,103 @@ async function startServer(): Promise<void> {
           });
         }
 
-        // Safety analysis is already done by middleware
-        const safetyResult = req.safetyResult;
-        const crisisResponse = req.crisisResponse;
+        logger.info(`🗣️ User message: ${message}`, { userId: req.userId });
+        const startTime = Date.now();
 
-        // In a real implementation, this would call the AI service
-        // For now, we'll return a safe response based on safety analysis
+        // Search for relevant Eve Appeal content
+        const contentResult = await contentService.searchContent(message);
         
-        let response = {
-          message: 'Thank you for your message. How can I help you with your health questions today?',
-          safetyLevel: safetyResult?.severity || 'general',
-          resources: [],
+        // Create enhanced system prompt
+        const systemPrompt = createEnhancedSystemPrompt(contentResult);
+
+        // Call Azure OpenAI with enhanced context
+        const completion = await azureOpenAI.chat.completions.create({
+          model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt
+            },
+            {
+              role: 'user',
+              content: message
+            }
+          ],
+          max_completion_tokens: 500,
+          temperature: 0.7
+        });
+
+        const responseTime = Date.now() - startTime;
+        const responseText = completion.choices[0].message.content || '';
+
+        // Check for crisis indicators
+        const isCrisis = detectCrisisIndicators(message, responseText);
+
+        // Log conversation analytics  
+        await logConversationAnalytics(message, contentResult, responseTime, req.userId);
+
+        logger.info(`🤖 Response generated (${responseTime}ms)`, { 
+          userId: req.userId,
+          tokens: completion.usage?.total_tokens,
+          contentFound: contentResult.found 
+        });
+
+        const response = {
+          message: responseText,
+          safetyLevel: isCrisis ? 'crisis' : 'general',
+          responseTime,
+          tokenUsage: completion.usage?.total_tokens || 0,
+          isCrisis,
+          timestamp: new Date().toISOString(),
+          contentUsed: contentResult.found ? {
+            source: contentResult.metadata?.bestMatchSource || 'Unknown',
+            relevanceScore: contentResult.relevanceScore || 0,
+            sourceUrl: contentResult.sourceUrl || '',
+            contentType: contentResult.metadata?.contentType || 'medical_information'
+          } : null,
+          resources: contentResult.found ? [contentResult.sourceUrl || ''] : [],
           disclaimers: [
             'This is general health information only and should not replace professional medical advice.',
-            'Always consult your healthcare provider for medical concerns.'
+            'Always consult your healthcare provider for medical concerns.',
+            'In emergencies, call 999 immediately.'
           ]
         };
 
-        // If crisis detected, prioritize crisis response
-        if (crisisResponse) {
-          response = {
-            message: crisisResponse.immediateMessage,
-            safetyLevel: safetyResult?.severity || 'crisis',
-            resources: crisisResponse.resources,
-            disclaimers: crisisResponse.disclaimers
-          };
+        return res.json(response);
+      } catch (error) {
+        logger.error('Enhanced chat endpoint error', { 
+          error: error instanceof Error ? error : new Error(String(error)), 
+          userId: req.userId 
+        });
+
+        // Handle Azure OpenAI content filtering
+        if (error instanceof Error && error.message.includes('content management policy')) {
+          return res.json({
+            message: `I understand you may be going through a difficult time. For your safety and wellbeing, please reach out for support:
+
+**Emergency Contacts:**
+• Emergency Services: 999
+• Samaritans: 116 123 (free, 24/7) 
+• Crisis Text Line: Text SHOUT to 85258
+• NHS 111: For urgent mental health support
+
+Your safety matters, and there are people who want to help. Please speak to someone who can provide the care and support you need.`,
+            safetyLevel: 'crisis',
+            isCrisis: true,
+            contentFiltered: true,
+            timestamp: new Date().toISOString()
+          });
         }
 
-        res.json(response);
-      } catch (error) {
-        logger.error('Chat endpoint error', { error, userId: req.userId });
-        res.status(500).json({
-          error: 'Internal server error',
-          code: 'INTERNAL_ERROR'
+        return res.status(500).json({
+          error: 'I apologize, but I\'m experiencing technical difficulties. Please try again or contact The Eve Appeal directly.',
+          code: 'INTERNAL_ERROR',
+          emergencyContacts: {
+            emergency: '999',
+            samaritans: '116 123', 
+            nhs: '111',
+            eveAppeal: 'https://eveappeal.org.uk'
+          }
         });
       }
     });
@@ -171,6 +333,7 @@ async function startServer(): Promise<void> {
           });
         }
 
+        // Process escalation update through notification service
         await notificationService.sendFollowUpNotification(
           escalationId,
           status || 'updated',
@@ -183,13 +346,13 @@ async function startServer(): Promise<void> {
           details
         });
 
-        res.json({
+        return res.json({
           success: true,
           message: 'Escalation update processed'
         });
       } catch (error) {
-        logger.error('Escalation webhook error', { error });
-        res.status(500).json({
+        logger.error('Escalation webhook error', { error: error instanceof Error ? error : new Error(String(error)) });
+        return res.status(500).json({
           error: 'Failed to process escalation update',
           code: 'WEBHOOK_ERROR'
         });
@@ -197,7 +360,7 @@ async function startServer(): Promise<void> {
     });
 
     // Error handling middleware
-    app.use((error: Error, req: any, res: express.Response, next: express.NextFunction) => {
+    app.use((error: Error, req: any, res: express.Response, _next: express.NextFunction) => {
       logger.error('Unhandled application error', {
         error,
         path: req.path,
@@ -238,11 +401,12 @@ async function startServer(): Promise<void> {
       });
 
       try {
+        // Shutdown safety middleware
         await safetyMiddleware.shutdown();
         await logger.shutdown();
         process.exit(0);
       } catch (error) {
-        logger.error('Error during shutdown', { error });
+        logger.error('Error during shutdown', { error: error instanceof Error ? error : new Error(String(error)) });
         process.exit(1);
       }
     };

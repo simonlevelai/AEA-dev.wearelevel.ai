@@ -140,7 +140,7 @@ export class EmailNotificationService {
           this.logger.warn('Email sending attempt failed, retrying...', {
             escalationId: payload.escalationId,
             attempt: retryCount,
-            error: lastError.message,
+            error: lastError instanceof Error ? lastError : new Error(String(lastError)),
             remainingRetries: this.maxRetries - retryCount
           });
 
@@ -163,7 +163,7 @@ export class EmailNotificationService {
     } catch (error) {
       this.logger.error('Crisis alert email failed', {
         escalationId: payload.escalationId,
-        error: (error as Error).message
+        error: error instanceof Error ? error : new Error(String(error))
       });
       throw error;
     }

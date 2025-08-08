@@ -2,9 +2,7 @@ import {
   SearchClient, 
   SearchIndexClient,
   AzureKeyCredential,
-  SearchOptions,
-  SearchResult,
-  IndexDocumentsResult
+  SearchOptions
 } from '@azure/search-documents';
 import { DefaultAzureCredential } from '@azure/identity';
 import { ContentChunk, SearchConfig } from '../types/content';
@@ -51,7 +49,7 @@ export class SearchService {
    */
   async search(
     query: string, 
-    options: Partial<SearchOptions> = {}
+    options: Partial<SearchOptions<ContentChunk>> = {}
   ): Promise<{
     results: Array<{ document: ContentChunk; score?: number }>;
     count: number;
@@ -59,7 +57,7 @@ export class SearchService {
     try {
       logger.info('Performing search', { query, options });
 
-      const searchOptions: SearchOptions = {
+      const searchOptions: SearchOptions<ContentChunk> = {
         searchMode: 'any',
         includeTotalCount: true,
         ...options
@@ -92,6 +90,101 @@ export class SearchService {
 
     } catch (error) {
       logger.error('Search failed', { query, options, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Perform hybrid search combining text and vector search for better relevance
+   */
+  async hybridSearch(
+    query: string,
+    options: {
+      top?: number;
+      filter?: string;
+      select?: string[];
+      semanticConfigurationName?: string;
+    } = {}
+  ): Promise<{
+    results: Array<{ document: ContentChunk; score?: number; highlights?: any }>;
+    count: number;
+  }> {
+    try {
+      logger.info('Performing hybrid search', { query, options });
+
+      const searchOptions: SearchOptions<ContentChunk> = {
+        searchMode: 'any',
+        queryType: 'semantic',
+        semanticSearch: {
+          configurationName: options.semanticConfigurationName || 'health-semantic-config',
+          captions: {
+            captionType: 'extractive',
+            highlightEnabled: true
+          }
+        },
+        includeTotalCount: true,
+        top: options.top || 5,
+        select: options.select || ['content', 'source', 'sourceUrl', 'sourcePage', 'title'],
+        filter: options.filter
+      };
+
+      const searchResults = await this.searchClient.search(query, searchOptions);
+      
+      // Convert async iterator to array with semantic highlights
+      const results: Array<{ document: ContentChunk; score?: number; highlights?: any }> = [];
+      let count = 0;
+
+      for await (const result of searchResults.results) {
+        results.push({
+          document: result.document,
+          score: result.score,
+          highlights: result.highlights
+        });
+        count++;
+      }
+
+      logger.info('Hybrid search completed', {
+        query,
+        resultCount: count,
+        totalCount: searchResults.count,
+        semanticConfig: options.semanticConfigurationName || 'health-semantic-config'
+      });
+
+      return {
+        results,
+        count: searchResults.count || count
+      };
+
+    } catch (error) {
+      logger.error('Hybrid search failed', { query, options, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Filter search results to only include content from Eve Appeal domain
+   */
+  async searchEveAppealContent(
+    query: string,
+    options: Partial<SearchOptions<ContentChunk>> = {}
+  ): Promise<{
+    results: Array<{ document: ContentChunk; score?: number }>;
+    count: number;
+  }> {
+    try {
+      const eveAppealFilter = "search.ismatch('https://eveappeal.org.uk*', 'sourceUrl')";
+      
+      const searchOptions: SearchOptions<ContentChunk> = {
+        ...options,
+        filter: options.filter 
+          ? `(${options.filter}) and (${eveAppealFilter})`
+          : eveAppealFilter
+      };
+
+      return await this.search(query, searchOptions);
+
+    } catch (error) {
+      logger.error('Eve Appeal content search failed', { query, options, error });
       throw error;
     }
   }
@@ -217,7 +310,7 @@ export class SearchService {
     storageSize: number;
   }> {
     try {
-      const stats = await this.searchIndexClient.getSearchIndexStatistics(
+      const stats = await this.searchIndexClient.getIndexStatistics(
         this.config.indexName
       );
 

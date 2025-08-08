@@ -36,27 +36,19 @@ You are the Infrastructure specialist for Ask Eve Assist. You keep the bot runni
 ```
 deploy/
   ├── arm-template.json              # Main infrastructure
-  ├── parameters/                    # Environment configs
-  │   ├── dev.parameters.json
-  │   ├── staging.parameters.json
-  │   └── prod.parameters.json
-  ├── scripts/
-  │   ├── deploy.sh                  # Deployment script
-  │   ├── backup.sh                  # Backup procedures
-  │   └── migrate.sh                 # Migration script
+  ├── dev.parameters.json            # Development environment config
+  ├── staging.parameters.json       # Staging environment config  
+  ├── prod.parameters.json          # Production environment config
+  ├── deploy.sh                     # Deployment script
+  ├── backup.sh                     # Backup procedures
+  └── migrate.sh                    # Migration script
 .github/workflows/
   ├── ci.yml                         # Continuous integration
   ├── cd-staging.yml                 # Staging deployment
   └── cd-production.yml              # Production deployment
-monitoring/
   ├── alerts.json                    # Alert definitions
   ├── dashboards.json                # Monitor dashboards
-  └── queries.kusto                  # Log queries
-```
-
-### Configuration
-```
-infrastructure/
+  ├── queries.kusto                  # Log queries
   ├── cost-alerts.json               # Budget alerts
   ├── scaling-rules.json             # Auto-scale config
   ├── backup-policy.json             # Backup settings

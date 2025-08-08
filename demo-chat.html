@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ask Eve Assist - Demo Chat</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #f8fafc;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #6b46c1 0%, #7c3aed 100%);
+            color: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .header h1 { margin: 0; font-size: 2.2em; }
+        .header p { margin: 5px 0 0 0; opacity: 0.9; }
+        
+        #chatContainer { 
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        #chatMessages { 
+            height: 500px; 
+            overflow-y: auto; 
+            padding: 20px; 
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .message { 
+            margin: 15px 0; 
+            padding: 15px 20px; 
+            border-radius: 18px; 
+            line-height: 1.5;
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .user { 
+            background: #e0e7ff; 
+            margin-left: 60px;
+            border-bottom-right-radius: 5px;
+        }
+        .bot { 
+            background: #f3e8ff; 
+            margin-right: 60px;
+            border-bottom-left-radius: 5px;
+        }
+        .crisis { 
+            background: #fef2f2; 
+            border-left: 4px solid #ef4444; 
+            margin-right: 40px;
+        }
+        
+        .inputContainer { 
+            padding: 20px; 
+            display: flex; 
+            gap: 10px;
+            background: #f9fafb;
+        }
+        #messageInput { 
+            flex: 1; 
+            padding: 12px 16px; 
+            border: 2px solid #e5e7eb;
+            border-radius: 25px; 
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        #messageInput:focus { border-color: #6b46c1; }
+        
+        #sendButton { 
+            padding: 12px 24px; 
+            background: #6b46c1; 
+            color: white; 
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        #sendButton:hover { background: #553c9a; }
+        #sendButton:disabled { background: #d1d5db; cursor: not-allowed; }
+        
+        .quickTests { 
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .quickTests h3 { margin-top: 0; color: #374151; }
+        .testBtn { 
+            background: #f0f9ff; 
+            border: 1px solid #0284c7; 
+            color: #0284c7;
+            padding: 8px 16px; 
+            margin: 4px; 
+            border-radius: 20px; 
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        .testBtn:hover { background: #0284c7; color: white; }
+        
+        .demo-info {
+            background: #fffbeb;
+            border: 1px solid #f59e0b;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .metrics { 
+            font-size: 12px; 
+            opacity: 0.7; 
+            margin-top: 8px; 
+            font-family: monospace;
+        }
+        .actions { 
+            margin-top: 10px; 
+        }
+        .actionBtn { 
+            background: #ede9fe; 
+            border: 1px solid #a855f7; 
+            color: #7c2d12;
+            padding: 4px 12px; 
+            margin: 2px; 
+            border-radius: 15px; 
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .actionBtn:hover { background: #a855f7; color: white; }
+        
+        .status { 
+            text-align: center; 
+            color: #6b7280; 
+            font-style: italic; 
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏥 Ask Eve Assist</h1>
+        <p>AI Healthcare Assistant - Demo Interface</p>
+    </div>
+    
+    <div class="demo-info">
+        <strong>📍 Demo Mode:</strong> This is a demonstration of Ask Eve Assist's conversation capabilities. 
+        Responses are simulated based on the conversation flow engine we validated locally.
+    </div>
+    
+    <div class="quickTests">
+        <h3>🧪 Test Ask Eve Assist Conversations</h3>
+        <button class="testBtn" onclick="sendTest('Hello, I\\'m worried about some symptoms')">👋 Greeting & Health Concern</button>
+        <button class="testBtn" onclick="sendTest('What are the symptoms of ovarian cancer?')">🔍 Ovarian Cancer Query</button>
+        <button class="testBtn" onclick="sendTest('Tell me about cervical screening')">📋 Cervical Screening Info</button>
+        <button class="testBtn" onclick="sendTest('Can I speak to a nurse?')">📞 Nurse Callback Request</button>
+        <button class="testBtn" onclick="sendTest('I\\'m feeling hopeless and having dark thoughts')">🚨 Crisis Detection Test</button>
+    </div>
+    
+    <div id="chatContainer">
+        <div id="chatMessages">
+            <div class="message bot">
+                <strong>Ask Eve Assist:</strong> Hello! I'm Ask Eve Assist, a digital assistant here to help you find information about gynaecological health from The Eve Appeal charity. 
+                <br><br>
+                I'm not a medical professional or nurse, but I can help you access trusted information and connect you with support services.
+                <br><br>
+                How can I help you today?
+                <div class="actions">
+                    <span class="actionBtn">Ovarian cancer symptoms</span>
+                    <span class="actionBtn">Cervical screening info</span>
+                    <span class="actionBtn">Support services</span>
+                    <span class="actionBtn">Speak to a nurse</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="inputContainer">
+            <input type="text" id="messageInput" placeholder="Type your health question here..." />
+            <button id="sendButton" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+    
+    <script>
+        // Demo responses based on our validated conversation flow
+        const responses = {
+            greeting: {
+                keywords: ['hello', 'hi', 'hey', 'worried', 'help', 'symptoms'],
+                response: `Hello, I'm Ask Eve Assist - a digital assistant here to help you find information about gynaecological health. I'm not a medical professional or nurse, but I can help you access trusted information from The Eve Appeal.
+
+How can I help you today?`,
+                actions: ['Ovarian cancer symptoms', 'Cervical screening info', 'Support services', 'Speak to a nurse'],
+                metrics: '~1ms | Greeting flow'
+            },
+            ovarian: {
+                keywords: ['ovarian', 'cancer', 'symptoms', 'bloating', 'pelvic pain'],
+                response: `Ovarian cancer symptoms may include persistent bloating, pelvic or abdominal pain, difficulty eating or feeling full quickly, urinary urgency or frequency, and changes in bowel habits. 
+
+These symptoms are often subtle and can be mistaken for other conditions, but if they are new for you, occur frequently, and persist, it is important to see your GP.
+
+*Source: The Eve Appeal*
+
+📖 [Read full information](https://eveappeal.org.uk/gynaecological-cancer/ovarian-cancer/)`,
+                actions: ['Ask follow-up question', 'Speak to a nurse', 'Other symptoms', 'Support services'],
+                metrics: '~1800ms | 420 tokens | Source: The Eve Appeal',
+                isCrisis: false
+            },
+            cervical: {
+                keywords: ['cervical', 'screening', 'smear', 'test'],
+                response: `Cervical screening (previously known as a smear test) checks for abnormal cells on the cervix that could develop into cancer if left untreated. 
+
+It is offered to women and people with a cervix aged 25-64 every 3-5 years in England. The test involves taking a small sample of cells from the cervix using a soft brush.
+
+Regular screening is one of the best ways to protect against cervical cancer.
+
+*Source: The Eve Appeal*
+
+📖 [Read full information](https://eveappeal.org.uk/gynaecological-health/cervical-screening/)`,
+                actions: ['Ask follow-up question', 'Speak to a nurse', 'When to get screened', 'Support services'],
+                metrics: '~2100ms | 380 tokens | Source: The Eve Appeal'
+            },
+            nurse: {
+                keywords: ['nurse', 'callback', 'speak', 'talk', 'contact'],
+                response: `📞 **Nurse Callback Service**
+
+I can arrange for one of our specialist nurses to call you back. They can provide personalized health guidance and answer your questions about gynaecological health.
+
+To arrange this, I'll need to collect some contact information in accordance with GDPR requirements. Is that okay?`,
+                actions: ['Yes, arrange callback', 'Tell me more first', 'No thanks', 'What information needed?'],
+                metrics: '~800ms | Nurse escalation workflow'
+            },
+            crisis: {
+                keywords: ['hopeless', 'dark thoughts', 'suicide', 'crisis', 'kill myself', 'desperate'],
+                response: `🚨 **Crisis Support Available**
+
+If you need immediate support:
+• Emergency services: 999
+• Samaritans: 116 123 (24/7)
+• Crisis text line: Text SHOUT to 85258
+• NHS 111: For urgent mental health support
+
+Would you like me to help you connect with a nurse for additional support?
+
+Your safety matters, and there are people who want to help you.`,
+                actions: ['Call Emergency Services', 'Contact Samaritans', 'Speak to a nurse', "I'm okay, continue"],
+                metrics: '~200ms | Crisis response activated',
+                isCrisis: true
+            },
+            fallback: {
+                response: `I don't have specific information about that topic in my knowledge base. For personalized health advice, I'd recommend:
+
+• Speaking to your GP
+• Contacting The Eve Appeal nurse line: 0808 802 0019
+• Calling NHS 111 for health guidance
+
+Is there something else about gynaecological health I can help you find information about?`,
+                actions: ['Ovarian cancer symptoms', 'Cervical screening', 'Contact a nurse', 'Common conditions'],
+                metrics: '~500ms | Fallback response'
+            }
+        };
+        
+        let isLoading = false;
+        
+        function addMessage(content, type, isCrisis = false) {
+            const messages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}` + (isCrisis ? ' crisis' : '');
+            messageDiv.innerHTML = content;
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+        
+        function setLoading(loading) {
+            isLoading = loading;
+            const button = document.getElementById('sendButton');
+            const input = document.getElementById('messageInput');
+            
+            button.disabled = loading;
+            button.textContent = loading ? 'Thinking...' : 'Send';
+            input.disabled = loading;
+            
+            if (loading) {
+                addMessage('<div class="status">🤖 Ask Eve is thinking...</div>', 'bot');
+            }
+        }
+        
+        function getResponse(message) {
+            const lowerMessage = message.toLowerCase();
+            
+            // Check each response type
+            for (const [type, data] of Object.entries(responses)) {
+                if (type === 'fallback') continue;
+                
+                if (data.keywords.some(keyword => lowerMessage.includes(keyword))) {
+                    return data;
+                }
+            }
+            
+            return responses.fallback;
+        }
+        
+        async function sendMessage(text = null) {
+            const input = document.getElementById('messageInput');
+            const message = text || input.value.trim();
+            
+            if (!message || isLoading) return;
+            
+            // Add user message
+            addMessage(`<strong>You:</strong> ${message}`, 'user');
+            
+            if (!text) input.value = '';
+            setLoading(true);
+            
+            // Simulate thinking time
+            await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1200));
+            
+            // Remove loading message
+            const messages = document.getElementById('chatMessages');
+            const lastMessage = messages.lastElementChild;
+            if (lastMessage.querySelector('.status')) {
+                lastMessage.remove();
+            }
+            
+            // Get appropriate response
+            const responseData = getResponse(message);
+            
+            let botContent = `<strong>Ask Eve Assist:</strong> ${responseData.response.replace(/\\n/g, '<br>')}`;
+            
+            if (responseData.metrics) {
+                botContent += `<div class="metrics">📊 ${responseData.metrics}</div>`;
+            }
+            
+            if (responseData.actions && responseData.actions.length > 0) {
+                botContent += '<div class="actions">';
+                responseData.actions.forEach(action => {
+                    botContent += `<span class="actionBtn">${action}</span>`;
+                });
+                botContent += '</div>';
+            }
+            
+            addMessage(botContent, 'bot', responseData.isCrisis || false);
+            setLoading(false);
+        }
+        
+        function sendTest(message) {
+            sendMessage(message);
+        }
+        
+        // Enter key support
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !isLoading) {
+                sendMessage();
+            }
+        });
+        
+        // Focus input on load
+        document.getElementById('messageInput').focus();
+        
+        // Action button clicks
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('actionBtn')) {
+                sendMessage(e.target.textContent);
+            }
+        });
+    </script>
+</body>
+</html>

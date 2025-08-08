@@ -9,6 +9,13 @@ import {
   BotDisclosure 
 } from '../types';
 import { SearchResponse as ContentSearchResponse } from '../types/content';
+import { ConversationFlowEngine } from '../services/ConversationFlowEngine';
+import { ConversationStateManager } from '../services/ConversationStateManager';
+import { ConversationState, ConversationFlowResult } from '../types/conversation';
+import { Logger } from '../utils/logger';
+import { EnhancedGDPRService } from '../services/EnhancedGDPRService';
+import { DataRetentionService } from '../services/DataRetentionService';
+import { UserConsentService } from '../services/UserConsentService';
 
 export class AgentsSDKBot extends ActivityHandler {
   private readonly options: AgentOptions;
@@ -18,10 +25,18 @@ export class AgentsSDKBot extends ActivityHandler {
   private readonly temperature = 0.1; // Low temperature for health information accuracy
   private readonly modelName = 'gpt-4o-mini';
   private readonly conversationHistory: Map<string, Array<{text: string; isUser: boolean; timestamp: Date}>> = new Map();
+  
+  // New conversation flow components
+  private readonly conversationFlowEngine: ConversationFlowEngine;
+  private readonly stateManager: ConversationStateManager;
+  private readonly logger: Logger;
+  private readonly gdprService: EnhancedGDPRService;
 
-  constructor(options: AgentOptions) {
+  constructor(options: AgentOptions, logger?: Logger) {
     super();
     this.options = options;
+    this.logger = logger || new Logger('agents-sdk-bot');
+    
     this.botDisclosure = {
       text: "Hello, I'm Ask Eve Assist - a digital assistant here to help you find information about gynaecological health. I'm not a medical professional or nurse, but I can help you access trusted information from The Eve Appeal.",
       followUp: "How can I help you today?",
@@ -38,11 +53,42 @@ export class AgentsSDKBot extends ActivityHandler {
       apiKey: process.env['OPENAI_API_KEY'] || 'test-api-key-for-testing'
     });
 
+    // Initialize conversation flow components
+    this.stateManager = new ConversationStateManager();
+    
+    // Initialize GDPR service with dependencies
+    const dataRetentionService = new DataRetentionService(this.logger);
+    const userConsentService = new UserConsentService(this.logger);
+    this.gdprService = new EnhancedGDPRService(this.logger, dataRetentionService, userConsentService);
+    
+    // Initialize conversation flow engine
+    this.conversationFlowEngine = new ConversationFlowEngine(
+      this.logger,
+      this.stateManager,
+      this.gdprService,
+      options.contentService
+    );
+
     // Initialize AgentApplication
     this.agentApplication = new AgentApplication<TurnState>();
     
     // Set up message handlers
     this.setupMessageHandlers();
+  }
+
+  /**
+   * Initialize the bot with conversation flow setup
+   */
+  async initialize(): Promise<void> {
+    try {
+      await this.conversationFlowEngine.initialize();
+      this.logger.info('AgentsSDKBot with ConversationFlowEngine initialized successfully');
+    } catch (error) {
+      this.logger.error('Failed to initialize AgentsSDKBot with ConversationFlowEngine', {
+        error: error instanceof Error ? error : new Error('Unknown error')
+      });
+      throw error;
+    }
   }
 
   // Public methods for testing
@@ -68,27 +114,48 @@ export class AgentsSDKBot extends ActivityHandler {
 
   public async handleMessage(context: TurnContext): Promise<void> {
     try {
-      // Convert TurnContext to MessageContext for compatibility with existing code
-      const messageContext = await this.createMessageContext(context);
+      // Convert TurnContext to ConversationState and context
+      const conversationId = context.activity.conversation?.id || 'default';
+      const userId = context.activity.from?.id || 'anonymous';
+      const userMessage = context.activity.text || '';
+      
+      this.logger.info('Processing message with ConversationFlowEngine', {
+        conversationId: conversationId.substring(0, 8) + '***',
+        userId: userId.substring(0, 8) + '***',
+        messageLength: userMessage.length
+      });
       
       // Update conversation history with the user's message
-      this.updateConversationHistory(context, messageContext.message.text, true);
+      this.updateConversationHistory(context, userMessage, true);
       
-      // 1. ALWAYS check safety first - NEVER bypass this
-      const safetyResult = await this.options.safetyService.analyzeMessage(
-        messageContext.message.text,
-        messageContext.conversationHistory
+      // Get or create conversation state
+      const conversationState = await this.getOrCreateConversationState(conversationId, userId, userMessage);
+      
+      // Create conversation flow context
+      const flowContext = {
+        stateManager: this.stateManager,
+        gdprService: this.gdprService,
+        contentService: this.options.contentService,
+        sendResponse: async (response: ConversationFlowResult) => {
+          await this.sendFlowResponse(context, response);
+        }
+      };
+      
+      // Process message through conversation flow engine
+      const flowResult = await this.conversationFlowEngine.processMessage(
+        userMessage,
+        conversationState,
+        flowContext
       );
-
-      if (safetyResult.shouldEscalate) {
-        // Safety Guardian takes over - immediate crisis response (<2 seconds)
-        await this.handleEscalation(context, safetyResult);
-        return;
-      }
-
-      // 2. Only proceed if safe
-      await this.handleNormalQuery(context, messageContext);
+      
+      // Send the response
+      await this.sendFlowResponse(context, flowResult);
+      
     } catch (error) {
+      this.logger.error('Message handling failed in ConversationFlowEngine', {
+        error: error instanceof Error ? error : new Error('Unknown error'),
+        conversationId: context.activity.conversation?.id
+      });
       await this.handleError(context, error);
     }
   }
@@ -155,6 +222,86 @@ export class AgentsSDKBot extends ActivityHandler {
     this.conversationHistory.set(conversationId, history);
   }
 
+  /**
+   * Get or create conversation state for flow engine
+   */
+  private async getOrCreateConversationState(
+    conversationId: string,
+    userId: string,
+    userMessage: string
+  ): Promise<ConversationState> {
+    
+    // Try to get existing state
+    const existingState = this.stateManager.getCurrentState(conversationId);
+    if (existingState) {
+      return existingState;
+    }
+    
+    // Create new conversation state
+    const newState: ConversationState = {
+      conversationId,
+      userId,
+      sessionId: `session-${Date.now()}`,
+      currentTopic: 'conversation_start', // This will trigger the opening statement
+      currentStage: 'greeting',
+      context: {
+        isFirstMessage: true,
+        messageCount: 1,
+        lastActivity: Date.now()
+      },
+      metadata: {
+        startTime: new Date().toISOString(),
+        platform: 'agents-sdk',
+        version: '1.0.0'
+      }
+    };
+    
+    // Initialize state in manager
+    await this.stateManager.updateState(conversationId, newState);
+    
+    return newState;
+  }
+  
+  /**
+   * Send conversation flow result as bot response
+   */
+  private async sendFlowResponse(context: TurnContext, flowResult: ConversationFlowResult): Promise<void> {
+    try {
+      const activity = MessageFactory.text(flowResult.response.text);
+      
+      // Add suggested actions if present
+      if (flowResult.response.suggestedActions && flowResult.response.suggestedActions.length > 0) {
+        activity.suggestedActions = {
+          actions: flowResult.response.suggestedActions.map(action => ({
+            type: 'imBack',
+            title: action,
+            value: action
+          })),
+          to: []
+        };
+      }
+      
+      await context.sendActivity(activity);
+      
+      // Update conversation history with bot response
+      this.updateConversationHistory(context, flowResult.response.text, false);
+      
+      this.logger.info('Conversation flow response sent', {
+        conversationId: context.activity.conversation?.id?.substring(0, 8) + '***',
+        escalationTriggered: flowResult.escalationTriggered,
+        conversationEnded: flowResult.conversationEnded,
+        responseLength: flowResult.response.text.length
+      });
+      
+    } catch (error) {
+      this.logger.error('Failed to send conversation flow response', {
+        error: error instanceof Error ? error : new Error('Unknown error'),
+        conversationId: context.activity.conversation?.id
+      });
+      throw error;
+    }
+  }
+
   private async handleEscalation(context: TurnContext, safetyResult: SafetyResult): Promise<void> {
     let escalationResponse: AgentResponse;
 
@@ -195,47 +342,29 @@ export class AgentsSDKBot extends ActivityHandler {
     await context.sendActivity(activity);
   }
 
+  /**
+   * Legacy method maintained for backward compatibility
+   */
   private async handleNormalQuery(context: TurnContext, messageContext: MessageContext): Promise<void> {
-    // Check if this is a greeting or first interaction
-    if (messageContext.conversationHistory.length === 0 && this.isGreeting(messageContext.message.text)) {
-      await this.sendBotDisclosure(context);
-      return;
-    }
-
-    // Show typing indicator
-    await context.sendActivity(MessageFactory.text(''));
-
-    try {
-      // RAG Step 1: Clean and prepare user query for search
-      const cleanedQuery = this.cleanQuery(messageContext.message.text);
-
-      // RAG Step 2: Retrieve relevant content from Azure AI Search
-      const searchResponse = await this.options.contentService.searchContent(cleanedQuery);
-
-      if (!searchResponse.found) {
-        await this.handleNoContentFound(context);
-        return;
-      }
-
-      // RAG Step 3: Validate source URL exists (critical safety check)
-      if (!searchResponse.sourceUrl) {
-        await this.handleMissingSourceUrl(context, searchResponse);
-        return;
-      }
-
-      // RAG Step 4: Build context for OpenAI with retrieved content + sources
-      const ragContext = this.buildRAGContext(searchResponse as ContentSearchResponse, cleanedQuery);
-
-      // RAG Step 5: Generate response using OpenAI with mandatory source attribution
-      const aiGeneratedResponse = await this.generateOpenAIResponse(ragContext, cleanedQuery);
-
-      // RAG Step 6: Format final response with source attribution and clickable links
-      const response = this.buildRAGResponse(searchResponse as ContentSearchResponse, aiGeneratedResponse);
-      await this.sendResponse(context, response);
-
-    } catch (error) {
-      throw error; // Re-throw to be handled by main error handler
-    }
+    // This method is now handled by the ConversationFlowEngine
+    // But we keep it for any legacy code that might call it directly
+    
+    this.logger.warn('handleNormalQuery called directly - this should go through ConversationFlowEngine', {
+      conversationId: context.activity.conversation?.id
+    });
+    
+    // Fallback to basic response
+    const response: AgentResponse = {
+      text: "I'm now using an improved conversation system. Please try your message again.",
+      suggestedActions: [
+        "Ovarian cancer symptoms",
+        "Cervical screening info", 
+        "Support services",
+        "Speak to a nurse"
+      ]
+    };
+    
+    await this.sendResponse(context, response);
   }
 
   private isGreeting(text: string): boolean {
@@ -282,7 +411,29 @@ export class AgentsSDKBot extends ActivityHandler {
 
 
   /**
+   * Get conversation flow engine for testing and integration
+   */
+  public getConversationFlowEngine(): ConversationFlowEngine {
+    return this.conversationFlowEngine;
+  }
+  
+  /**
+   * Get state manager for testing and integration
+   */
+  public getStateManager(): ConversationStateManager {
+    return this.stateManager;
+  }
+  
+  /**
+   * Get GDPR service for testing and integration
+   */
+  public getGDPRService(): EnhancedGDPRService {
+    return this.gdprService;
+  }
+
+  /**
    * RAG Implementation: Build final response with AI-generated content and source attribution
+   * (Legacy method - now handled by ConversationFlowEngine handlers)
    */
   private buildRAGResponse(searchResponse: ContentSearchResponse, aiResponse: string): AgentResponse {
     if (!searchResponse.sourceUrl) {
@@ -351,7 +502,7 @@ export class AgentsSDKBot extends ActivityHandler {
 
   /**
    * RAG Implementation: Clean and prepare user queries for search
-   * Removes filler words, normalizes text, and extracts key health terms
+   * (Legacy method - now handled by ConversationFlowEngine handlers)
    */
   private cleanQuery(rawQuery: string): string {
     // Remove common filler words and normalize
@@ -376,6 +527,7 @@ export class AgentsSDKBot extends ActivityHandler {
 
   /**
    * RAG Implementation: Build context for OpenAI using retrieved content and sources
+   * (Legacy method - now handled by ConversationFlowEngine handlers)
    */
   private buildRAGContext(searchResponse: ContentSearchResponse, userQuery: string): string {
     if (!searchResponse.found || !searchResponse.content || !searchResponse.sourceUrl) {
@@ -395,6 +547,7 @@ IMPORTANT: You must base your response ONLY on this provided content. Always inc
 
   /**
    * RAG Implementation: Generate response using OpenAI with RAG context and source enforcement
+   * (Legacy method - now handled by ConversationFlowEngine handlers)
    */
   private async generateOpenAIResponse(ragContext: string, userQuery: string): Promise<string> {
     try {

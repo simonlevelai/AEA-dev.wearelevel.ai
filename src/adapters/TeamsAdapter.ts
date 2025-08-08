@@ -3,16 +3,15 @@ import {
   TurnContext, 
   CardFactory, 
   MessageFactory,
-  TeamsInfo,
-  Activity
+  TeamsInfo
 } from 'botbuilder';
-import { AskEveBot } from '../bot/AskEveBot';
+import { AgentsSDKBot } from '../bot/AgentsSDKBot';
 import { BaseAdapter } from './BaseAdapter';
 
 export class TeamsAdapter extends BaseAdapter {
   private teamsHandler: TeamsActivityHandler;
 
-  constructor(bot: AskEveBot) {
+  constructor(bot: AgentsSDKBot) {
     super(bot);
     this.teamsHandler = new TeamsActivityHandler();
     this.setupTeamsHandlers();
@@ -24,22 +23,22 @@ export class TeamsAdapter extends BaseAdapter {
 
   private setupTeamsHandlers(): void {
     // Handle new team members being added
-    this.teamsHandler.onMembersAdded(async (context: TurnContext, next) => {
+    this.teamsHandler.onMembersAdded(async (context: TurnContext, next: () => Promise<void>) => {
       await this.handleMembersAdded(context);
       await next();
     });
 
     // Handle regular messages
-    this.teamsHandler.onMessage(async (context: TurnContext, next) => {
+    this.teamsHandler.onMessage(async (context: TurnContext, next: () => Promise<void>) => {
       await this.processMessage(context);
       await next();
     });
 
-    // Handle Teams channel creation
-    this.teamsHandler.onTeamsChannelCreated(async (context: TurnContext, next) => {
-      await this.sendTeamsWelcomeCard(context);
-      await next();
-    });
+    // Handle Teams channel creation - removed as it's protected
+    // this.teamsHandler.onTeamsChannelCreated(async (context: TurnContext, next) => {
+    //   await this.sendTeamsWelcomeCard(context);
+    //   await next();
+    // });
   }
 
   private async handleMembersAdded(context: TurnContext): Promise<void> {
@@ -95,7 +94,7 @@ export class TeamsAdapter extends BaseAdapter {
   }
 
   // Override to provide Teams-specific functionality
-  protected async sendResponse(turnContext: TurnContext, response: any): Promise<void> {
+  protected override async sendResponse(turnContext: TurnContext, response: any): Promise<void> {
     const activity = MessageFactory.text(response.text);
 
     // Handle Teams-specific attachments
@@ -116,6 +115,7 @@ export class TeamsAdapter extends BaseAdapter {
     // Add suggested actions for Teams
     if (response.suggestedActions && response.suggestedActions.length > 0) {
       activity.suggestedActions = {
+        to: [],
         actions: response.suggestedActions.map((action: string) => ({
           type: 'messageBack',
           title: action,
@@ -129,7 +129,7 @@ export class TeamsAdapter extends BaseAdapter {
   }
 
   // Teams-specific message context creation
-  protected createMessageContext(turnContext: TurnContext): any {
+  protected override createMessageContext(turnContext: TurnContext): any {
     const context = super.createMessageContext(turnContext);
     
     // Add Teams-specific context

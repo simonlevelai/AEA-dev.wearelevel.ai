@@ -1,0 +1,5 @@
+ultrasound|transvaginal ultrasound,TV scan,internal scan,transvaginal scan,TVUS,ultrasound,ultrasound scan,internal ultrasound
+ct_scan|CT scan,CAT scan,computed tomography,CT,CT imaging
+mri_scan|MRI scan,magnetic resonance imaging,MRI,MRI imaging
+pet_scan|PET scan,positron emission tomography,PET,PET imaging
+ca125|CA125,CA-125,CA 125 blood test,blood test,CA 125,tumour marker

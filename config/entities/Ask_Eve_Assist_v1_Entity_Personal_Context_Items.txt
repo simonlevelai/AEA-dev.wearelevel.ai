@@ -1,0 +1,3 @@
+personal|I have,I'm experiencing,my,I've been,I am having,I've got,I'm getting,mine,I suffer from,I get
+someone_else|my friend,my mother,my sister,my daughter,my partner,my wife,someone I know,my mum,my relative,my family member
+general_query|what is,tell me about,information about,can you explain,how does,what are,explain,what causes,learn about

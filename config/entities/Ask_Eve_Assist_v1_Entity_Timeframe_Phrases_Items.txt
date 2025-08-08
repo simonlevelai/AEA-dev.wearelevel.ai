@@ -1,0 +1,5 @@
+recent|recently,past few days,this week,just started,last few days,newly,new,just begun
+days|for days,several days,few days,couple of days,past few days,a few days
+weeks|for weeks,several weeks,few weeks,couple of weeks,past few weeks,a few weeks,2 weeks,3 weeks
+months|for months,several months,few months,couple of months,past few months,a few months,2 months,3 months
+years|for years,long time,ages,chronic,longstanding,years now,a long time

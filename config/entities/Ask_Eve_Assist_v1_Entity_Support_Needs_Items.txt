@@ -1,0 +1,7 @@
+support|support,help,assistance,guidance,advice,information,help me
+worried|worried,anxious,concerned,scared,frightened,afraid,fearful,terrified,nervous
+nurse_request|speak to nurse,talk to someone,human support,real person,speak to a person,talk to nurse,chat with nurse
+appointments|appointments,appointment,booking,consultation,when can I be seen,book appointment
+waiting_time|waiting time,wait times,how long,waiting list,when will I,how long wait
+results|results,test results,report,findings,my results,result
+follow_up|follow up,follow-up,next steps,aftercare,what happens next,after treatment

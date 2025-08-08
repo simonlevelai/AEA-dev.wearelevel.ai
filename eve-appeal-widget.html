@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Eve Appeal - Ask Eve Assist Integration Demo</title>
+    <style>
+        /* Demo page styling */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+            line-height: 1.6;
+        }
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .eve-appeal-header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 3px solid #d63384;
+            padding-bottom: 20px;
+        }
+        .eve-appeal-header h1 {
+            color: #d63384;
+            margin: 0;
+        }
+        .integration-info {
+            background: #e7f3ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #007bff;
+        }
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+        .demo-content {
+            margin: 40px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="eve-appeal-header">
+            <h1>🌺 The Eve Appeal</h1>
+            <p>Ask Eve Assist - AI-Powered Gynaecological Health Support</p>
+        </div>
+
+        <div class="integration-info">
+            <h3>📋 Integration Instructions for The Eve Appeal Website</h3>
+            <p><strong>To add Ask Eve Assist to your website, simply add this single line of code before your closing &lt;/body&gt; tag:</strong></p>
+            <div class="code-block">
+&lt;script src="https://cdn.eveappeal.org.uk/ask-eve-assist/widget.js" data-api-url="https://api.eveappeal.org.uk/chat"&gt;&lt;/script&gt;
+            </div>
+            <p><strong>That's it! The chat widget will automatically appear in the bottom-right corner of your website.</strong></p>
+            
+            <h4>🎨 Customization Options:</h4>
+            <div class="code-block">
+&lt;script src="https://cdn.eveappeal.org.uk/ask-eve-assist/widget.js" 
+        data-api-url="https://api.eveappeal.org.uk/chat"
+        data-brand-color="#d63384"
+        data-position="bottom-right"
+        data-welcome-message="Hello! I'm Ask Eve Assist. How can I help you today?"
+        data-crisis-phone="0808 802 0019"&gt;&lt;/script&gt;
+            </div>
+        </div>
+
+        <div class="demo-content">
+            <h3>📱 Live Demo</h3>
+            <p>The Ask Eve Assist chat widget is active on this page. Look for the chat bubble in the bottom-right corner!</p>
+            <p><strong>Try these scenarios:</strong></p>
+            <ul>
+                <li>Ask about ovarian cancer symptoms</li>
+                <li>Request to speak with a nurse</li>
+                <li>General health information questions</li>
+                <li>Crisis support (emergency contacts will be provided)</li>
+            </ul>
+        </div>
+
+        <div class="integration-info">
+            <h3>🔧 Technical Features</h3>
+            <ul>
+                <li><strong>Multi-Agent Architecture:</strong> Safety Agent → Content Agent → Escalation Agent</li>
+                <li><strong>Crisis Detection:</strong> &lt;500ms response time with immediate emergency contacts</li>
+                <li><strong>MHRA Compliant:</strong> Information only, no medical advice</li>
+                <li><strong>GDPR Compliant:</strong> Data protection built-in for nurse callbacks</li>
+                <li><strong>Mobile Responsive:</strong> Works perfectly on all devices</li>
+                <li><strong>Accessible:</strong> Screen reader compatible</li>
+                <li><strong>Branded:</strong> Matches The Eve Appeal visual identity</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ASK EVE ASSIST WIDGET - DROP-IN INTEGRATION -->
+    <script>
+        (function() {
+            // Configuration (normally passed via data attributes)
+            const config = {
+                apiUrl: 'http://localhost:3002/api/chat', // In production: 'https://api.eveappeal.org.uk/chat'
+                brandColor: '#d63384', // Eve Appeal pink
+                position: 'bottom-right',
+                welcomeMessage: 'Hello! I\'m Ask Eve Assist. How can I help you with gynaecological health information today?',
+                crisisPhone: '0808 802 0019'
+            };
+
+            // Create widget styles
+            const styles = `
+                #ask-eve-widget {
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    z-index: 9999;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                }
+                
+                #ask-eve-button {
+                    width: 60px;
+                    height: 60px;
+                    border-radius: 50%;
+                    background: ${config.brandColor};
+                    border: none;
+                    cursor: pointer;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 24px;
+                    transition: all 0.3s ease;
+                }
+                
+                #ask-eve-button:hover {
+                    transform: scale(1.1);
+                    box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+                }
+                
+                #ask-eve-chat {
+                    position: absolute;
+                    bottom: 80px;
+                    right: 0;
+                    width: 350px;
+                    height: 500px;
+                    background: white;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+                    display: none;
+                    flex-direction: column;
+                    border: 1px solid #dee2e6;
+                }
+                
+                #ask-eve-header {
+                    background: ${config.brandColor};
+                    color: white;
+                    padding: 15px;
+                    border-radius: 12px 12px 0 0;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                
+                #ask-eve-messages {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 15px;
+                    background: #fafafa;
+                }
+                
+                #ask-eve-input-container {
+                    padding: 15px;
+                    border-top: 1px solid #dee2e6;
+                    display: flex;
+                    gap: 10px;
+                }
+                
+                #ask-eve-input {
+                    flex: 1;
+                    padding: 10px;
+                    border: 1px solid #dee2e6;
+                    border-radius: 20px;
+                    outline: none;
+                }
+                
+                #ask-eve-send {
+                    padding: 10px 15px;
+                    background: ${config.brandColor};
+                    color: white;
+                    border: none;
+                    border-radius: 20px;
+                    cursor: pointer;
+                }
+                
+                .ask-eve-message {
+                    margin-bottom: 12px;
+                    padding: 8px 12px;
+                    border-radius: 12px;
+                    max-width: 85%;
+                    word-wrap: break-word;
+                }
+                
+                .ask-eve-user {
+                    background: ${config.brandColor};
+                    color: white;
+                    margin-left: auto;
+                }
+                
+                .ask-eve-agent {
+                    background: white;
+                    border: 1px solid #dee2e6;
+                    position: relative;
+                }
+                
+                .ask-eve-agent-name {
+                    font-size: 11px;
+                    color: ${config.brandColor};
+                    font-weight: bold;
+                    margin-bottom: 4px;
+                }
+                
+                .ask-eve-crisis {
+                    background: #dc3545 !important;
+                    color: white !important;
+                    border: none !important;
+                }
+                
+                .ask-eve-actions {
+                    margin-top: 8px;
+                }
+                
+                .ask-eve-action-btn {
+                    background: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    padding: 4px 8px;
+                    margin: 2px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 11px;
+                }
+                
+                .ask-eve-response-info {
+                    font-size: 10px;
+                    color: #666;
+                    margin-top: 6px;
+                    border-top: 1px solid #eee;
+                    padding-top: 4px;
+                }
+                
+                @media (max-width: 768px) {
+                    #ask-eve-chat {
+                        width: 300px;
+                        height: 400px;
+                        bottom: 80px;
+                        right: 10px;
+                    }
+                    
+                    #ask-eve-widget {
+                        bottom: 15px;
+                        right: 15px;
+                    }
+                }
+            `;
+
+            // Inject styles
+            const styleElement = document.createElement('style');
+            styleElement.textContent = styles;
+            document.head.appendChild(styleElement);
+
+            // Create widget HTML
+            const widgetHTML = `
+                <div id="ask-eve-widget">
+                    <button id="ask-eve-button" onclick="askEve.toggle()" aria-label="Open Ask Eve Assist Chat">
+                        🌺
+                    </button>
+                    <div id="ask-eve-chat">
+                        <div id="ask-eve-header">
+                            🌺 Ask Eve Assist
+                            <div style="font-size: 12px; font-weight: normal; margin-top: 2px;">AI-Powered Health Support</div>
+                        </div>
+                        <div id="ask-eve-messages"></div>
+                        <div id="ask-eve-input-container">
+                            <input type="text" id="ask-eve-input" placeholder="Type your message..." onkeypress="if(event.key==='Enter') askEve.send()">
+                            <button id="ask-eve-send" onclick="askEve.send()">Send</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Add widget to page when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    document.body.insertAdjacentHTML('beforeend', widgetHTML);
+                    initWidget();
+                });
+            } else {
+                document.body.insertAdjacentHTML('beforeend', widgetHTML);
+                initWidget();
+            }
+
+            function initWidget() {
+                // Global askEve object for widget interaction
+                window.askEve = {
+                    conversationId: 'widget-' + Date.now(),
+                    isOpen: false,
+
+                    toggle: function() {
+                        const chat = document.getElementById('ask-eve-chat');
+                        const button = document.getElementById('ask-eve-button');
+                        
+                        if (this.isOpen) {
+                            chat.style.display = 'none';
+                            button.innerHTML = '🌺';
+                            this.isOpen = false;
+                        } else {
+                            chat.style.display = 'flex';
+                            button.innerHTML = '✕';
+                            this.isOpen = true;
+                            
+                            // Show welcome message if first time
+                            if (document.getElementById('ask-eve-messages').children.length === 0) {
+                                this.addMessage(config.welcomeMessage, false, 'Ask Eve Assist');
+                            }
+                        }
+                    },
+
+                    send: async function() {
+                        const input = document.getElementById('ask-eve-input');
+                        const message = input.value.trim();
+                        
+                        if (!message) return;
+                        
+                        // Add user message
+                        this.addMessage(message, true);
+                        input.value = '';
+                        
+                        // Show typing indicator
+                        const typingId = this.addMessage('...', false, 'Ask Eve Assist');
+                        
+                        try {
+                            const response = await fetch(config.apiUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    message: message,
+                                    conversationId: this.conversationId,
+                                    userId: 'website-visitor'
+                                })
+                            });
+                            
+                            const data = await response.json();
+                            
+                            // Remove typing indicator
+                            document.getElementById(typingId).remove();
+                            
+                            if (data.success) {
+                                this.addMessage(data.response, false, data.agentUsed, data);
+                            } else {
+                                this.addMessage('I apologize, but I\'m having technical difficulties. Please contact The Eve Appeal directly on 0808 802 0019 for support.', false, 'System');
+                            }
+                        } catch (error) {
+                            console.error('Ask Eve Widget Error:', error);
+                            document.getElementById(typingId).remove();
+                            this.addMessage('Connection error. Please check your internet connection or contact The Eve Appeal on 0808 802 0019.', false, 'System');
+                        }
+                    },
+
+                    addMessage: function(text, isUser, agentName, responseData) {
+                        const messages = document.getElementById('ask-eve-messages');
+                        const messageElement = document.createElement('div');
+                        const messageId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2);
+                        
+                        messageElement.id = messageId;
+                        messageElement.className = 'ask-eve-message ' + (isUser ? 'ask-eve-user' : 'ask-eve-agent');
+                        
+                        if (responseData && responseData.isCrisis) {
+                            messageElement.classList.add('ask-eve-crisis');
+                        }
+                        
+                        let content = '';
+                        if (!isUser && agentName) {
+                            content += '<div class="ask-eve-agent-name">🤖 ' + agentName + '</div>';
+                        }
+                        
+                        content += text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                        
+                        // Add suggested actions
+                        if (responseData && responseData.suggestedActions && responseData.suggestedActions.length > 0) {
+                            content += '<div class="ask-eve-actions">';
+                            responseData.suggestedActions.forEach(action => {
+                                content += '<button class="ask-eve-action-btn" onclick="askEve.sendSuggested(\\''+action+'\\')">' + action + '</button>';
+                            });
+                            content += '</div>';
+                        }
+                        
+                        // Add response info
+                        if (responseData) {
+                            content += '<div class="ask-eve-response-info">';
+                            content += 'Response: ' + responseData.responseTime + 'ms';
+                            if (responseData.emergencyContacts) {
+                                content += ' | 🚨 Emergency support available';
+                            }
+                            content += '</div>';
+                        }
+                        
+                        messageElement.innerHTML = content;
+                        messages.appendChild(messageElement);
+                        messages.scrollTop = messages.scrollHeight;
+                        
+                        return messageId;
+                    },
+
+                    sendSuggested: function(message) {
+                        document.getElementById('ask-eve-input').value = message;
+                        this.send();
+                    }
+                };
+            }
+        })();
+    </script>
+</body>
+</html>

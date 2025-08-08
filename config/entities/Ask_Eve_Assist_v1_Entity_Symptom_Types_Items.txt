@@ -1,0 +1,11 @@
+bleeding|bleeding,spotting,blood,discharge with blood,vaginal bleeding,bleeding down below
+pain|pain,ache,cramps,discomfort,hurting,sore,painful,pelvic pain,abdominal pain,tummy pain
+bloating|bloating,bloated,swollen,distended,full feeling,swollen tummy,abdominal swelling
+discharge|discharge,fluid,secretion,vaginal discharge,unusual discharge
+itching|itching,itchy,itch,irritation,vulval itching,vaginal itching
+heavy_bleeding|heavy bleeding,flooding,soaking through,heavy periods,excessive bleeding,hemorrhaging
+irregular_bleeding|irregular bleeding,bleeding between periods,unexpected bleeding,abnormal bleeding,spotting between periods
+postmenopausal_bleeding|bleeding after menopause,postmenopausal bleeding,PMB,bleeding post menopause
+post_coital_bleeding|bleeding after sex,post-coital bleeding,bleeding after intercourse,bleeding during sex
+soreness|soreness,sore,tender,tenderness,vulval soreness,vaginal soreness
+lump|lump,mass,growth,bump,swelling,bulge

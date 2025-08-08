@@ -1,0 +1,10 @@
+endometriosis|endometriosis,endo,endometriosis condition
+adenomyosis|adenomyosis,adenomyosis condition
+fibroid|fibroid,fibroids,uterine fibroids,myoma,womb fibroids
+cyst|cyst,cysts,ovarian cyst,ovarian cysts,cyst on ovary
+polyp|polyp,polyps,endometrial polyp,cervical polyp,womb polyp
+prolapse|prolapse,pelvic organ prolapse,uterine prolapse,womb prolapse,vaginal prolapse
+lichen_sclerosus|lichen sclerosus,LS,vulval lichen sclerosus,lichen sclerosis
+empd|EMPD,extramammary Paget's disease,Paget's disease of vulva,Paget's disease
+incontinence|incontinence,urinary incontinence,bladder weakness,leaking,bladder leakage
+pelvic_floor|pelvic floor,pelvic floor muscles,pelvic floor dysfunction,pelvic floor weakness

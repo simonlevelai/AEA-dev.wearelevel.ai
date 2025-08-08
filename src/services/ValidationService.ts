@@ -262,10 +262,11 @@ export class ValidationService {
         }
         return `${this.EVE_APPEAL_DOMAIN}/documents/${filename}#page=${page}`;
         
-      default:
+      default: {
         // Fallback to topic-based URL
         const topicPath = topic ? `/information/${topic}` : '/information';
         return `${this.EVE_APPEAL_DOMAIN}${topicPath}`;
+      }
     }
   }
 }

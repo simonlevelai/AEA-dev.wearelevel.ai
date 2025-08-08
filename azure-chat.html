@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ask Eve Assist - Azure OpenAI Local Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 700px;
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-header h1 {
+            font-size: 1.6rem;
+            margin-bottom: 5px;
+        }
+
+        .chat-header p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .azure-status {
+            background: #0078d4;
+            color: white;
+            padding: 8px;
+            text-align: center;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #90EE90;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .emergency-bar {
+            background: #e74c3c;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-size: 0.8rem;
+        }
+
+        .emergency-bar strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message.user {
+            align-items: flex-end;
+        }
+
+        .message.bot {
+            align-items: flex-start;
+        }
+
+        .message-bubble {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        .message.user .message-bubble {
+            background: #007bff;
+            color: white;
+        }
+
+        .message.bot .message-bubble {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+        }
+
+        .message-meta {
+            font-size: 0.7rem;
+            color: #666;
+            margin-top: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .crisis-indicator {
+            background: #ff6b6b;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 0.6rem;
+            font-weight: bold;
+        }
+
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .chat-input input:focus {
+            border-color: #007bff;
+        }
+
+        .send-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            type: button;
+        }
+
+        .send-button:hover:not(:disabled) {
+            background: #0056b3;
+        }
+
+        .send-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 10px;
+            font-style: italic;
+            color: #666;
+            text-align: center;
+        }
+
+        .disclaimer {
+            padding: 15px;
+            background: #fff3cd;
+            color: #856404;
+            font-size: 0.8rem;
+            text-align: center;
+        }
+
+        .quick-questions {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .quick-questions h3 {
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .quick-question-btn {
+            background: #e9ecef;
+            border: none;
+            padding: 8px 12px;
+            margin: 3px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            type: button;
+        }
+
+        .quick-question-btn:hover {
+            background: #007bff;
+            color: white;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 600px) {
+            .chat-container {
+                width: 95%;
+                height: 90vh;
+                border-radius: 10px;
+            }
+            
+            .message-bubble {
+                max-width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>🌸 Ask Eve Assist</h1>
+            <p>Azure OpenAI Local Chat - Gynaecological Health Information</p>
+        </div>
+        
+        <div class="azure-status">
+            <div class="status-dot"></div>
+            Connected to Azure OpenAI East US - GPT-4o-mini
+        </div>
+        
+        <div class="emergency-bar">
+            <strong>Emergency Contacts</strong>
+            Emergency: 999 | Samaritans: 116 123 | NHS: 111 | Crisis Text: SHOUT to 85258
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot">
+                <div class="message-bubble">
+                    Hello! I'm Ask Eve Assist, powered by Azure OpenAI and here to provide gynaecological health information from The Eve Appeal charity.
+                    <br><br>
+                    I can help with information about:
+                    • Cervical, ovarian, womb, vulval, and vaginal health
+                    • Screening and prevention
+                    • Understanding symptoms
+                    • Support services
+                    <br><br>
+                    <strong>Important:</strong> I provide general health information only. Always consult healthcare professionals for personal medical advice.
+                    <br><br>
+                    How can I help you today?
+                </div>
+                <div class="message-meta">
+                    <span>Azure OpenAI GPT-4o-mini</span>
+                    <span>Safety systems active</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="typing-indicator" id="typingIndicator">
+            🤖 Ask Eve is thinking... (connecting to Azure OpenAI)
+        </div>
+
+        <div class="quick-questions">
+            <h3>Try asking about:</h3>
+            <button type="button" class="quick-question-btn" onclick="sendMessage('What are the symptoms of ovarian cancer?')">Ovarian cancer symptoms</button>
+            <button type="button" class="quick-question-btn" onclick="sendMessage('When should I get cervical screening?')">Cervical screening</button>
+            <button type="button" class="quick-question-btn" onclick="sendMessage('What is HPV and how does it relate to cervical cancer?')">HPV information</button>
+            <button type="button" class="quick-question-btn" onclick="sendMessage('I have irregular bleeding between periods')">Irregular bleeding</button>
+            <button type="button" class="quick-question-btn" onclick="sendMessage('What support services are available?')">Support services</button>
+        </div>
+
+        <div class="disclaimer">
+            <strong>Medical Disclaimer:</strong> This provides general health information only and should not replace professional medical advice. Always consult your healthcare provider for medical concerns. In emergencies, call 999.
+        </div>
+
+        <div class="chat-input">
+            <div class="input-group">
+                <input type="text" id="messageInput" placeholder="Ask me about gynaecological health..." onkeypress="handleKeyPress(event)">
+                <button type="button" class="send-button" id="sendButton" onclick="sendUserMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const typingIndicator = document.getElementById('typingIndicator');
+
+        let messageCount = 0;
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendUserMessage();
+            }
+        }
+
+        function sendMessage(text) {
+            messageInput.value = text;
+            sendUserMessage();
+        }
+
+        async function sendUserMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            messageCount++;
+
+            // Add user message to chat
+            addMessage('user', message);
+            messageInput.value = '';
+            sendButton.disabled = true;
+            showTyping();
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.response) {
+                    addBotMessage(data.response, {
+                        responseTime: data.responseTime,
+                        tokenUsage: data.tokenUsage,
+                        isCrisis: data.isCrisis,
+                        contentFiltered: data.contentFiltered,
+                        pifContent: data.pifContentUsed
+                    });
+                } else if (data.error) {
+                    addErrorMessage(data.error);
+                    if (data.emergencyContacts) {
+                        addEmergencyContacts(data.emergencyContacts);
+                    }
+                }
+            } catch (error) {
+                console.error('Chat error:', error);
+                addErrorMessage('Connection error: Please check that the local server is running on port 3001. Try running: node local-azure-chat.js');
+            }
+
+            hideTyping();
+            sendButton.disabled = false;
+            messageInput.focus();
+        }
+
+        function addMessage(sender, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'message-bubble';
+            bubbleDiv.innerHTML = text.replace(/\n/g, '<br>');
+            
+            messageDiv.appendChild(bubbleDiv);
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function addBotMessage(text, meta = {}) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message bot';
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'message-bubble';
+            bubbleDiv.innerHTML = text.replace(/\n/g, '<br>');
+            
+            messageDiv.appendChild(bubbleDiv);
+
+            // Add PiF content source if available
+            if (meta.pifContent && meta.pifContent.found) {
+                const sourceDiv = document.createElement('div');
+                sourceDiv.className = 'pif-source';
+                sourceDiv.style.cssText = 'margin-top: 10px; padding: 8px; background: #f0f8ff; border: 1px solid #007bff; border-radius: 8px; font-size: 0.8rem;';
+                sourceDiv.innerHTML = `
+                    📚 <strong>Source:</strong> ${meta.pifContent.source}<br>
+                    🔗 <a href="${meta.pifContent.sourceUrl}" target="_blank">View on The Eve Appeal</a><br>
+                    📊 Relevance: ${(meta.pifContent.relevanceScore * 100).toFixed(1)}%
+                `;
+                messageDiv.appendChild(sourceDiv);
+            }
+
+            // Add metadata
+            if (meta.responseTime || meta.tokenUsage) {
+                const metaDiv = document.createElement('div');
+                metaDiv.className = 'message-meta';
+                
+                const parts = [];
+                if (meta.responseTime) parts.push(`${meta.responseTime}ms`);
+                if (meta.tokenUsage) parts.push(`${meta.tokenUsage} tokens`);
+                if (meta.contentFiltered) parts.push('Content filtered');
+                if (meta.pifContent && meta.pifContent.found) parts.push('PiF content used');
+                
+                if (meta.isCrisis) {
+                    const crisisSpan = document.createElement('span');
+                    crisisSpan.className = 'crisis-indicator';
+                    crisisSpan.textContent = 'CRISIS DETECTED';
+                    metaDiv.appendChild(crisisSpan);
+                    metaDiv.appendChild(document.createTextNode(' '));
+                }
+                
+                metaDiv.appendChild(document.createTextNode(parts.join(' • ')));
+                messageDiv.appendChild(metaDiv);
+            }
+
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function addErrorMessage(error) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `<strong>Error:</strong> ${error}`;
+            chatMessages.appendChild(errorDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function addEmergencyContacts(contacts) {
+            const contactsDiv = document.createElement('div');
+            contactsDiv.className = 'message bot';
+            contactsDiv.innerHTML = `
+                <div class="message-bubble">
+                    <strong>🚨 Emergency Contacts:</strong><br>
+                    Emergency Services: ${contacts.emergency}<br>
+                    Samaritans: ${contacts.samaritans}<br>
+                    NHS: ${contacts.nhs}<br>
+                    <a href="${contacts.eveAppeal}" target="_blank">The Eve Appeal</a>
+                </div>
+            `;
+            chatMessages.appendChild(contactsDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showTyping() {
+            typingIndicator.style.display = 'block';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function hideTyping() {
+            typingIndicator.style.display = 'none';
+        }
+
+        // Check server health on load
+        async function checkServerHealth() {
+            try {
+                const response = await fetch('/health');
+                const health = await response.json();
+                console.log('✅ Server health check passed:', health);
+            } catch (error) {
+                console.error('❌ Server health check failed:', error);
+                addErrorMessage('Server not responding. Please make sure to run: node local-azure-chat.js');
+            }
+        }
+
+        // Focus on input when page loads and check server
+        window.addEventListener('load', () => {
+            messageInput.focus();
+            checkServerHealth();
+        });
+    </script>
+</body>
+</html>

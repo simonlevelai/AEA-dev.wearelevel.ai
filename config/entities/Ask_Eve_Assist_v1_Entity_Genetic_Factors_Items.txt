@@ -1,0 +1,5 @@
+brca|BRCA,BRCA1,BRCA2,BRCA gene,BRCA mutation,breast cancer gene,BRCA positive
+lynch|Lynch,Lynch syndrome,HNPCC,hereditary cancer,Lynch positive
+genetics|genetics,genetic risk,hereditary,runs in family,family cancer,genetic,inherited
+family_history|family history,family member had,mother had,sister had,runs in family,family risk
+risk_factors|risk factors,risk,increased risk,risk assessment,higher risk,at risk

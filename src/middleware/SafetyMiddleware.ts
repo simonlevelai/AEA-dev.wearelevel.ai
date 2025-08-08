@@ -26,18 +26,16 @@ export interface SafetyMiddlewareOptions {
 
 export class SafetyMiddleware {
   private escalationService: EscalationService;
-  private notificationService: NotificationService;
   private logger: Logger;
   private options: SafetyMiddlewareOptions;
 
   constructor(
     escalationService: EscalationService,
-    notificationService: NotificationService,
+    _notificationService: NotificationService,
     logger: Logger,
     options: SafetyMiddlewareOptions = {}
   ) {
     this.escalationService = escalationService;
-    this.notificationService = notificationService;
     this.logger = logger;
     this.options = {
       skipPaths: [],
@@ -51,7 +49,7 @@ export class SafetyMiddleware {
    * Express middleware for intercepting and analyzing user messages
    */
   analyzeUserMessage() {
-    return async (req: SafetyMiddlewareRequest, res: Response, next: NextFunction): Promise<void> => {
+    return async (req: SafetyMiddlewareRequest, _res: Response, next: NextFunction): Promise<void> => {
       const startTime = Date.now();
 
       try {
@@ -143,29 +141,30 @@ export class SafetyMiddleware {
       // Intercept response to check for MHRA violations
       const originalSend = res.send;
       
+      const middleware = this;
       res.send = function(this: Response, body: unknown) {
         try {
           const responseText = typeof body === 'string' ? body : JSON.stringify(body);
-          const violations = this.checkMHRACompliance(responseText);
+          const violations = middleware.checkMHRACompliance(responseText);
           
           if (violations.length > 0) {
-            this.logger.error('MHRA compliance violations detected in response', {
+            middleware.logger.error('MHRA compliance violations detected in response', {
               violations,
               userId: req.userId,
               sessionId: req.sessionId
             });
 
             // Replace with safe response
-            const safeResponse = this.generateSafeResponse(req.safetyResult);
+            const safeResponse = middleware.generateSafeResponse(req.safetyResult);
             return originalSend.call(this, safeResponse);
           }
 
           return originalSend.call(this, body);
         } catch (error) {
-          this.logger.error('Response validation error', { error });
+          middleware.logger.error('Response validation error', { error });
           return originalSend.call(this, body);
         }
-      }.bind(this);
+      };
 
       next();
     };

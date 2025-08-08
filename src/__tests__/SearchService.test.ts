@@ -278,4 +278,180 @@ describe('SearchService', () => {
       expect(result.indexName).toBe('askeve-content-test');
     });
   });
+
+  describe('hybridSearch', () => {
+    it('should perform hybrid semantic search with proper configuration', async () => {
+      // Arrange
+      const query = 'cervical cancer screening';
+      const options = {
+        top: 3,
+        select: ['content', 'source', 'sourceUrl', 'title'],
+        semanticConfigurationName: 'health-semantic-config'
+      };
+
+      const mockResults = [
+        {
+          document: {
+            id: 'test-1',
+            content: 'Cervical screening information...',
+            title: 'Cervical Screening Guide',
+            source: 'Eve Appeal',
+            sourceUrl: 'https://eveappeal.org.uk/information/cervical-screening',
+            lastReviewed: new Date()
+          },
+          score: 0.98,
+          highlights: {
+            content: ['<em>cervical</em> <em>screening</em> information']
+          }
+        }
+      ];
+
+      mockSearchClient.search.mockResolvedValue({
+        results: mockResults,
+        count: 1
+      } as any);
+
+      // Act
+      const result = await searchService.hybridSearch(query, options);
+
+      // Assert
+      expect(mockSearchClient.search).toHaveBeenCalledWith(query, {
+        searchMode: 'any',
+        queryType: 'semantic',
+        semanticSearch: {
+          configurationName: 'health-semantic-config',
+          captions: {
+            captionType: 'extractive',
+            highlightEnabled: true
+          }
+        },
+        includeTotalCount: true,
+        top: 3,
+        select: ['content', 'source', 'sourceUrl', 'title'],
+        filter: undefined
+      });
+      
+      expect(result.results).toEqual(mockResults);
+      expect(result.count).toBe(1);
+    });
+
+    it('should use default semantic configuration when not specified', async () => {
+      // Arrange
+      const query = 'ovarian cancer symptoms';
+      mockSearchClient.search.mockResolvedValue({
+        results: [],
+        count: 0
+      } as any);
+
+      // Act
+      await searchService.hybridSearch(query, {});
+
+      // Assert
+      expect(mockSearchClient.search).toHaveBeenCalledWith(query, {
+        searchMode: 'any',
+        queryType: 'semantic',
+        semanticSearch: {
+          configurationName: 'health-semantic-config',
+          captions: {
+            captionType: 'extractive',
+            highlightEnabled: true
+          }
+        },
+        includeTotalCount: true,
+        top: 5,
+        select: ['content', 'source', 'sourceUrl', 'sourcePage', 'title'],
+        filter: undefined
+      });
+    });
+
+    it('should handle hybrid search errors', async () => {
+      // Arrange
+      const query = 'test query';
+      const searchError = new Error('Semantic search service unavailable');
+      mockSearchClient.search.mockRejectedValue(searchError);
+
+      // Act & Assert
+      await expect(searchService.hybridSearch(query, {}))
+        .rejects
+        .toThrow('Semantic search service unavailable');
+    });
+  });
+
+  describe('searchEveAppealContent', () => {
+    it('should filter search results to Eve Appeal domain only', async () => {
+      // Arrange
+      const query = 'gynecological health information';
+      const options = { top: 3 };
+
+      const mockResults = [
+        {
+          document: {
+            id: 'eve-content-1',
+            content: 'Eve Appeal gynecological information...',
+            title: 'Gynecological Health',
+            source: 'Eve Appeal',
+            sourceUrl: 'https://eveappeal.org.uk/information/gynecological-health',
+            lastReviewed: new Date()
+          },
+          score: 0.92
+        }
+      ];
+
+      mockSearchClient.search.mockResolvedValue({
+        results: mockResults,
+        count: 1
+      } as any);
+
+      // Act
+      const result = await searchService.searchEveAppealContent(query, options);
+
+      // Assert
+      expect(mockSearchClient.search).toHaveBeenCalledWith(query, {
+        searchMode: 'any',
+        includeTotalCount: true,
+        top: 3,
+        filter: "search.ismatch('https://eveappeal.org.uk*', 'sourceUrl')"
+      });
+      
+      expect(result.results).toEqual(mockResults);
+      expect(result.count).toBe(1);
+    });
+
+    it('should combine Eve Appeal filter with existing filter', async () => {
+      // Arrange
+      const query = 'cancer symptoms';
+      const options = { 
+        filter: "sourcePage eq 1",
+        top: 2 
+      };
+
+      mockSearchClient.search.mockResolvedValue({
+        results: [],
+        count: 0
+      } as any);
+
+      // Act
+      await searchService.searchEveAppealContent(query, options);
+
+      // Assert
+      expect(mockSearchClient.search).toHaveBeenCalledWith(query, {
+        searchMode: 'any',
+        includeTotalCount: true,
+        top: 2,
+        filter: "(sourcePage eq 1) and (search.ismatch('https://eveappeal.org.uk*', 'sourceUrl'))"
+      });
+    });
+
+    it('should handle Eve Appeal content search errors', async () => {
+      // Arrange
+      const query = 'test query';
+      const searchError = new Error('Filter query invalid');
+      mockSearchClient.search.mockRejectedValue(searchError);
+
+      // Act & Assert
+      await expect(searchService.searchEveAppealContent(query, {}))
+        .rejects
+        .toThrow('Filter query invalid');
+    });
+  });
 });

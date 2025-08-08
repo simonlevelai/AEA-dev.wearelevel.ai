@@ -1,0 +1,5 @@
+menopause|menopause,the change,change of life,menopausal,going through menopause
+early_menopause|early menopause,premature menopause,POI,premature ovarian insufficiency,menopause early
+surgical_menopause|surgical menopause,induced menopause,menopause after surgery,surgery menopause
+hrt|HRT,hormone replacement therapy,hormone therapy,hormones,hormone treatment
+hrt_after_cancer|HRT after cancer,hormone replacement after cancer,HRT post cancer,hormones after cancer

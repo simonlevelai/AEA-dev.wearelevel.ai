@@ -19,6 +19,23 @@ import {
 } from '../types/safety';
 import { Logger } from '../utils/logger';
 import { NotificationService } from './NotificationService';
+import { ContactDetails } from '../workflows/ContactCollectionWorkflow';
+import { ConversationFlowContext } from './ConversationFlowEngine';
+import { ContactDetailsForEscalation } from '../types/safety';
+
+export interface ContactEscalationRequest {
+  escalationId: string;
+  contactDetails: ContactDetails;
+  escalationType: 'crisis' | 'nurse_callback';
+  requestedBy: string;
+  urgency: 'immediate' | 'high' | 'medium' | 'low';
+  context?: string;
+  schedulingPreferences?: {
+    preferredTime?: string;
+    timeZone?: string;
+    availability?: string;
+  };
+}
 
 export class EscalationService {
   private crisisTriggers: Record<string, string[]> = {};
@@ -282,20 +299,33 @@ export class EscalationService {
         escalationId: validatedEscalation.id,
         severity: validatedEscalation.severity,
         userId: validatedEscalation.userId,
-        summary: this.generateEscalationSummary(validatedEscalation),
+        summary: this.generateEnhancedEscalationSummary(validatedEscalation),
         triggerMatches: validatedEscalation.safetyResult.matches.map(m => m.trigger),
         timestamp: validatedEscalation.timestamp,
-        urgency: this.determineUrgency(validatedEscalation.severity),
-        requiresCallback: validatedEscalation.severity === 'crisis'
+        urgency: validatedEscalation.urgencyLevel || this.determineUrgency(validatedEscalation.severity),
+        requiresCallback: validatedEscalation.severity === 'crisis' || validatedEscalation.callbackRequested || false,
+        contactDetails: validatedEscalation.contactDetails ? {
+          name: validatedEscalation.contactDetails.name,
+          phone: validatedEscalation.contactDetails.phone,
+          email: validatedEscalation.contactDetails.email,
+          preferredContact: validatedEscalation.contactDetails.preferredContact,
+          bestTimeToCall: validatedEscalation.contactDetails.bestTimeToCall,
+          alternativeContact: validatedEscalation.contactDetails.alternativeContact
+        } : undefined,
+        escalationType: validatedEscalation.escalationType,
+        preferredContactMethod: validatedEscalation.preferredContactMethod
       };
 
       const validatedPayload = NotificationPayloadSchema.parse(notificationPayload);
 
       await this.notificationService.sendCrisisAlert(validatedPayload);
 
-      this.logger.info('Nurse team notified successfully', {
+      this.logger.info('Enhanced nurse team notification sent', {
         escalationId: validatedEscalation.id,
         severity: validatedEscalation.severity,
+        escalationType: validatedEscalation.escalationType,
+        hasContactDetails: !!validatedEscalation.contactDetails,
+        callbackRequested: validatedEscalation.callbackRequested || false,
         userId: validatedEscalation.userId
       });
     } catch (error) {
@@ -349,9 +379,8 @@ export class EscalationService {
     const matches: TriggerMatch[] = [];
 
     // Implement fuzzy matching for typos and variations
-    const words = message.split(' ');
     
-    for (const [category, triggers] of Object.entries(this.crisisTriggers)) {
+    for (const [_category, triggers] of Object.entries(this.crisisTriggers)) {
       for (const [subcategory, triggerList] of Object.entries(triggers)) {
         if (Array.isArray(triggerList)) {
           for (const trigger of triggerList) {
@@ -659,14 +688,20 @@ export class EscalationService {
   }
 
   private generateEscalationSummary(escalation: EscalationEvent): string {
-    const { severity, safetyResult } = escalation;
+    const { severity, safetyResult, escalationType } = escalation;
     const triggerCount = safetyResult.matches.length;
     const primaryTriggers = safetyResult.matches
       .slice(0, 3)
       .map(m => m.category)
       .join(', ');
 
-    return `${severity.toUpperCase()} escalation: ${triggerCount} triggers detected (${primaryTriggers})`;
+    let summary = `${severity.toUpperCase()} ${escalationType || 'escalation'}: ${triggerCount} triggers detected`;
+    
+    if (primaryTriggers) {
+      summary += ` (${primaryTriggers})`;
+    }
+    
+    return summary;
   }
 
   private determineUrgency(severity: SeverityLevel): 'immediate' | 'high' | 'medium' | 'low' {
@@ -686,7 +721,8 @@ export class EscalationService {
     userId: string,
     sessionId: string,
     userMessage: string,
-    safetyResult: SafetyResult
+    safetyResult: SafetyResult,
+    contactDetails?: ContactDetails
   ): Promise<EscalationEvent> {
     const escalationEvent: EscalationEvent = {
       id: uuidv4(),
@@ -698,9 +734,339 @@ export class EscalationService {
       timestamp: Date.now(),
       notificationSent: false,
       nurseTeamAlerted: false,
-      responseGenerated: false
+      responseGenerated: false,
+      contactDetails: contactDetails ? {
+        name: contactDetails.name,
+        phone: contactDetails.phone,
+        email: contactDetails.email,
+        preferredContact: contactDetails.preferredContact,
+        bestTimeToCall: contactDetails.bestTimeToCall,
+        alternativeContact: contactDetails.alternativeContact
+      } : undefined,
+      escalationType: safetyResult.severity === 'crisis' ? 'crisis' : 'general_support',
+      callbackRequested: false,
+      preferredContactMethod: contactDetails?.preferredContact,
+      urgencyLevel: this.determineUrgency(safetyResult.severity)
     };
 
     return EscalationEventSchema.parse(escalationEvent);
+  }
+
+  /**
+   * Create escalation with contact information for nurse callback
+   */
+  async createCallbackEscalation(
+    userId: string,
+    sessionId: string,
+    contactDetails: ContactDetails,
+    context?: string
+  ): Promise<EscalationEvent> {
+    try {
+      const escalationEvent: EscalationEvent = {
+        id: uuidv4(),
+        userId,
+        sessionId,
+        severity: 'high_concern', // Nurse callbacks are high concern, not crisis
+        safetyResult: {
+          severity: 'high_concern',
+          confidence: 0.9,
+          requiresEscalation: true,
+          matches: [{
+            trigger: 'nurse_callback_requested',
+            confidence: 1.0,
+            category: 'callback_request',
+            severity: 'high_concern',
+            position: { start: 0, end: 0 },
+            matchType: 'context'
+          }],
+          riskFactors: ['callback_requested'],
+          contextualConcerns: context ? ['user_concern'] : [],
+          analysisTime: 0,
+          recommendedActions: ['nurse_callback_scheduling', 'contact_information_validation']
+        },
+        userMessage: context || 'Nurse callback requested',
+        timestamp: Date.now(),
+        notificationSent: false,
+        nurseTeamAlerted: false,
+        responseGenerated: false,
+        contactDetails: {
+          name: contactDetails.name,
+          phone: contactDetails.phone,
+          email: contactDetails.email,
+          preferredContact: contactDetails.preferredContact,
+          bestTimeToCall: contactDetails.bestTimeToCall,
+          alternativeContact: contactDetails.alternativeContact
+        },
+        escalationType: 'nurse_callback',
+        callbackRequested: true,
+        preferredContactMethod: contactDetails.preferredContact,
+        urgencyLevel: 'high'
+      };
+
+      this.logger.info('Nurse callback escalation created', {
+        escalationId: escalationEvent.id,
+        userId,
+        hasPhone: !!contactDetails.phone,
+        hasEmail: !!contactDetails.email,
+        preferredContact: contactDetails.preferredContact
+      });
+
+      return EscalationEventSchema.parse(escalationEvent);
+
+    } catch (error) {
+      this.logger.error('Failed to create callback escalation', {
+        error: error instanceof Error ? error : new Error('Unknown error'),
+        userId
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Create escalation with contact information for crisis support
+   */
+  async createCrisisEscalation(
+    userId: string,
+    sessionId: string,
+    userMessage: string,
+    safetyResult: SafetyResult,
+    contactDetails?: ContactDetails
+  ): Promise<EscalationEvent> {
+    try {
+      const escalationEvent: EscalationEvent = {
+        id: uuidv4(),
+        userId,
+        sessionId,
+        severity: safetyResult.severity,
+        safetyResult,
+        userMessage,
+        timestamp: Date.now(),
+        notificationSent: false,
+        nurseTeamAlerted: false,
+        responseGenerated: false,
+        contactDetails: contactDetails ? {
+          name: contactDetails.name,
+          phone: contactDetails.phone,
+          email: contactDetails.email,
+          preferredContact: contactDetails.preferredContact,
+          bestTimeToCall: contactDetails.bestTimeToCall,
+          alternativeContact: contactDetails.alternativeContact
+        } : undefined,
+        escalationType: 'crisis',
+        callbackRequested: false,
+        preferredContactMethod: contactDetails?.preferredContact,
+        urgencyLevel: this.determineUrgency(safetyResult.severity)
+      };
+
+      this.logger.info('Crisis escalation created with contact integration', {
+        escalationId: escalationEvent.id,
+        severity: safetyResult.severity,
+        hasContactDetails: !!contactDetails,
+        urgencyLevel: escalationEvent.urgencyLevel,
+        userId
+      });
+
+      return EscalationEventSchema.parse(escalationEvent);
+
+    } catch (error) {
+      this.logger.error('Failed to create crisis escalation', {
+        error: error instanceof Error ? error : new Error('Unknown error'),
+        userId
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Process escalation request with contact information
+   */
+  async processContactEscalation(
+    request: ContactEscalationRequest,
+    conversationContext: ConversationFlowContext
+  ): Promise<{ success: boolean; escalationId: string; estimatedCallback?: string; error?: string }> {
+    try {
+      this.logger.info('Processing contact escalation request', {
+        escalationId: request.escalationId,
+        escalationType: request.escalationType,
+        urgency: request.urgency,
+        hasContactDetails: !!request.contactDetails
+      });
+
+      // Validate contact details
+      const validationResult = this.validateContactDetails(request.contactDetails);
+      if (!validationResult.isValid) {
+        return {
+          success: false,
+          escalationId: request.escalationId,
+          error: `Contact validation failed: ${validationResult.errors?.join(', ')}`
+        };
+      }
+
+      // Create appropriate escalation type
+      let escalation: EscalationEvent;
+
+      if (request.escalationType === 'crisis') {
+        // For crisis, create with high urgency and immediate callback
+        escalation = await this.createCrisisEscalation(
+          request.requestedBy,
+          `session-${Date.now()}`,
+          request.context || 'Crisis support escalation with contact details',
+          {
+            severity: 'crisis',
+            confidence: 1.0,
+            requiresEscalation: true,
+            matches: [{
+              trigger: 'crisis_escalation_with_contact',
+              confidence: 1.0,
+              category: 'crisis_support',
+              severity: 'crisis',
+              position: { start: 0, end: 0 },
+              matchType: 'context'
+            }],
+            riskFactors: ['crisis_with_contact_provided'],
+            contextualConcerns: ['immediate_support_required'],
+            analysisTime: 0,
+            recommendedActions: ['immediate_callback', 'crisis_team_activation']
+          },
+          request.contactDetails
+        );
+      } else {
+        // For nurse callback, create standard callback escalation
+        escalation = await this.createCallbackEscalation(
+          request.requestedBy,
+          `session-${Date.now()}`,
+          request.contactDetails,
+          request.context
+        );
+      }
+
+      // Notify nurse team with contact information
+      await this.notifyNurseTeam(escalation);
+
+      // Determine estimated callback time
+      const estimatedCallback = this.calculateCallbackEstimate(
+        request.escalationType,
+        request.urgency,
+        request.schedulingPreferences?.preferredTime
+      );
+
+      this.logger.info('Contact escalation processed successfully', {
+        escalationId: escalation.id,
+        escalationType: request.escalationType,
+        estimatedCallback
+      });
+
+      return {
+        success: true,
+        escalationId: escalation.id,
+        estimatedCallback
+      };
+
+    } catch (error) {
+      this.logger.error('Contact escalation processing failed', {
+        error: error instanceof Error ? error : new Error('Unknown error'),
+        escalationId: request.escalationId
+      });
+
+      return {
+        success: false,
+        escalationId: request.escalationId,
+        error: error instanceof Error ? error.message : 'Processing failed'
+      };
+    }
+  }
+
+  /**
+   * Validate contact details for escalation
+   */
+  private validateContactDetails(contactDetails: ContactDetails): {
+    isValid: boolean;
+    errors?: string[];
+  } {
+    const errors: string[] = [];
+
+    if (!contactDetails.name || contactDetails.name.trim().length < 2) {
+      errors.push('Valid name required');
+    }
+
+    if (!contactDetails.phone && !contactDetails.email) {
+      errors.push('At least phone or email required');
+    }
+
+    if (contactDetails.phone && !/^(\+44\s?7\d{3}|\(?07\d{3}\)?)\s?\d{3}\s?\d{3}$/.test(contactDetails.phone)) {
+      errors.push('Valid UK mobile number required');
+    }
+
+    if (contactDetails.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactDetails.email)) {
+      errors.push('Valid email address required');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors: errors.length > 0 ? errors : undefined
+    };
+  }
+
+  /**
+   * Calculate estimated callback time based on escalation type and urgency
+   */
+  private calculateCallbackEstimate(
+    escalationType: 'crisis' | 'nurse_callback',
+    urgency: 'immediate' | 'high' | 'medium' | 'low',
+    preferredTime?: string
+  ): string {
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    if (escalationType === 'crisis') {
+      if (urgency === 'immediate') {
+        return 'Within 2 hours';
+      } else {
+        return 'Within 4 hours';
+      }
+    }
+
+    // For nurse callbacks, consider business hours and preferences
+    if (urgency === 'immediate' || urgency === 'high') {
+      if (currentHour >= 9 && currentHour < 17) {
+        return 'Within 24 hours (next business day if after hours)';
+      } else {
+        return 'Within 24-48 hours (next business day)';
+      }
+    } else {
+      return 'Within 48-72 hours (2-3 business days)';
+    }
+  }
+
+  /**
+   * Generate enhanced escalation summary with contact information
+   */
+  private generateEnhancedEscalationSummary(escalation: EscalationEvent): string {
+    const baseSummary = this.generateEscalationSummary(escalation);
+    const contactInfo = escalation.contactDetails;
+    
+    let enhancedSummary = baseSummary;
+    
+    if (contactInfo) {
+      enhancedSummary += ` | Contact: ${contactInfo.name || 'Name not provided'}`;
+      
+      if (contactInfo.phone) {
+        enhancedSummary += ` (${contactInfo.phone})`;
+      }
+      
+      if (contactInfo.preferredContact) {
+        enhancedSummary += ` | Preferred: ${contactInfo.preferredContact}`;
+      }
+      
+      if (contactInfo.bestTimeToCall) {
+        enhancedSummary += ` | Best time: ${contactInfo.bestTimeToCall}`;
+      }
+    }
+    
+    if (escalation.callbackRequested) {
+      enhancedSummary += ` | CALLBACK REQUESTED`;
+    }
+    
+    return enhancedSummary;
   }
 }

@@ -1,0 +1,7 @@
+cin1|CIN 1,CIN1,mild dyskaryosis,low grade changes,mild cell changes,CIN one,grade 1
+cin2|CIN 2,CIN2,moderate dyskaryosis,moderate cell changes,CIN two,grade 2
+cin3|CIN 3,CIN3,severe dyskaryosis,high grade changes,severe cell changes,CIN three,grade 3
+cgin|CGIN,cervical glandular intraepithelial neoplasia,glandular abnormalities,glandular changes
+cell_changes|cell changes,abnormal cells,cellular changes,atypical cells,abnormal smear,changed cells
+dyskaryosis|dyskaryosis,abnormal cells,cell abnormalities
+thickened_lining|thickened womb lining,endometrial hyperplasia,thick endometrium,thickened endometrium
