@@ -1817,10 +1817,26 @@ async function startRealM365AgentsServer(): Promise<void> {
           id: `activity-${Date.now()}`
         } as any;
 
-        // Process through real M365 SDK
+        // CRITICAL FIX: Process through real M365 SDK with proper state management
         const turnContext = new TurnContext(adapter, activity);
         
-        // Mock sendActivity to capture response
+        // STEP 1: Load existing conversation and user state before processing
+        logger.info('🔍 Loading conversation state for persistence', {
+          conversationId: finalConversationId,
+          userId: finalUserId
+        });
+        
+        try {
+          // Load existing state - this is what was missing!
+          await conversationState.load(turnContext);
+          await userState.load(turnContext);
+          logger.info('✅ Conversation state loaded successfully');
+        } catch (loadError) {
+          logger.warn('⚠️ Could not load existing state, using defaults', { loadError });
+          // Continue with default state if loading fails
+        }
+        
+        // STEP 2: Mock sendActivity to capture response
         let botResponse = '';
         const originalSendActivity = turnContext.sendActivity;
         turnContext.sendActivity = async (activityOrText: any) => {
@@ -1829,7 +1845,20 @@ async function startRealM365AgentsServer(): Promise<void> {
           return { id: `response-${Date.now()}` };
         };
 
+        // STEP 3: Process message through bot with loaded state
         await bot.run(turnContext);
+        
+        // STEP 4: Save state changes - this is also critical!
+        try {
+          await conversationState.saveChanges(turnContext);
+          await userState.saveChanges(turnContext);
+          logger.info('✅ Conversation state saved successfully', {
+            conversationId: finalConversationId
+          });
+        } catch (saveError) {
+          logger.error('❌ Failed to save conversation state', { saveError });
+          // Continue despite save error to avoid breaking the response
+        }
         
         const responseTime = Date.now() - startTime;
         
