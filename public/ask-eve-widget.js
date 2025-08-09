@@ -372,6 +372,115 @@
         opacity: 1;
       }
     }
+    
+    /* Streaming cursor animation */
+    .streaming-cursor {
+      color: ${themeColor};
+      font-weight: bold;
+      animation: blink 1s infinite;
+      margin-left: 2px;
+    }
+    
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+    
+    /* Enhanced typing indicator */
+    .typing-indicator {
+      display: flex;
+      gap: 4px;
+      padding: 8px 0;
+      align-items: center;
+    }
+    
+    .typing-dot {
+      width: 8px;
+      height: 8px;
+      background: ${themeColor};
+      border-radius: 50%;
+      opacity: 0.4;
+      animation: typingPulse 1.5s infinite ease-in-out;
+    }
+    
+    .typing-dot:nth-child(1) { animation-delay: 0s; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    
+    @keyframes typingPulse {
+      0%, 60%, 100% { 
+        opacity: 0.4;
+        transform: scale(1);
+      }
+      30% { 
+        opacity: 1;
+        transform: scale(1.2);
+      }
+    }
+    
+    /* Enhanced markdown formatting */
+    .ask-eve-text strong {
+      font-weight: 600;
+      color: #1f2937;
+    }
+    
+    .ask-eve-text em {
+      font-style: italic;
+      color: #4b5563;
+    }
+    
+    .emergency-icon {
+      color: #dc2626;
+      font-weight: bold;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    /* List formatting for bullet points */
+    .ask-eve-text li {
+      margin: 4px 0;
+      list-style: none;
+      position: relative;
+      padding-left: 16px;
+    }
+    
+    .ask-eve-text li:before {
+      content: "•";
+      color: ${themeColor};
+      font-weight: bold;
+      position: absolute;
+      left: 0;
+    }
+    
+    /* Enhanced crisis styling */
+    .ask-eve-crisis .emergency-icon {
+      animation: urgentPulse 1s infinite;
+    }
+    
+    @keyframes urgentPulse {
+      0%, 100% { 
+        opacity: 1; 
+        transform: scale(1);
+      }
+      50% { 
+        opacity: 0.8; 
+        transform: scale(1.1);
+      }
+    }
+    
+    /* Smooth text appearance for better readability */
+    .ask-eve-text p {
+      animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   `;
   
   // Initialize widget
@@ -468,22 +577,131 @@
     addMessage('user', message);
     input.value = '';
     
-    // Show loading indicator
+    // Show typing indicator for streaming
+    showTypingIndicator();
+    
+    // Try streaming first, fallback to regular API if needed
+    sendMessageWithStreaming(message)
+      .catch(error => {
+        console.warn('Streaming failed, falling back to regular API:', error);
+        return sendMessageWithFetch(message);
+      });
+  }
+
+  async function sendMessageWithStreaming(message) {
+    return new Promise((resolve, reject) => {
+      // Create streaming bot message container
+      const streamingMessageId = 'streaming-message-' + Date.now();
+      const botMessageContainer = addStreamingMessage('bot', streamingMessageId);
+      
+      let accumulatedText = '';
+      let metadata = null;
+      
+      // Create POST request for streaming endpoint
+      fetch(config.apiUrl + '/api/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: message,
+          conversationId: conversationId
+        })
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        hideTypingIndicator();
+        
+        // Read the streaming response
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        function readStream() {
+          return reader.read().then(({ done, value }) => {
+            if (done) {
+              // Finalize the message
+              finalizeStreamingMessage(streamingMessageId, accumulatedText, metadata);
+              resolve({ response: accumulatedText, ...metadata });
+              return;
+            }
+            
+            // Process the streamed chunk
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+            
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                
+                if (data === '[DONE]') {
+                  // Stream complete
+                  finalizeStreamingMessage(streamingMessageId, accumulatedText, metadata);
+                  resolve({ response: accumulatedText, ...metadata });
+                  return;
+                }
+                
+                try {
+                  const parsed = JSON.parse(data);
+                  
+                  if (parsed.type === 'metadata') {
+                    metadata = parsed;
+                    if (parsed.conversationId) {
+                      conversationId = parsed.conversationId;
+                    }
+                  } else if (parsed.type === 'chunk') {
+                    accumulatedText += parsed.content;
+                    updateStreamingMessage(streamingMessageId, accumulatedText, parsed.isCrisis);
+                  } else if (parsed.type === 'complete') {
+                    accumulatedText = parsed.response; // Ensure we have the complete response
+                    metadata = { ...metadata, ...parsed };
+                    // Will be finalized when [DONE] is received
+                  } else if (parsed.type === 'error') {
+                    hideTypingIndicator();
+                    updateStreamingMessage(streamingMessageId, parsed.error, false);
+                    resolve({ response: parsed.error, error: true });
+                    return;
+                  }
+                } catch (e) {
+                  // Ignore JSON parse errors for malformed chunks
+                  console.debug('JSON parse error (expected):', e.message);
+                }
+              }
+            }
+            
+            // Continue reading
+            return readStream();
+          });
+        }
+        
+        return readStream();
+      })
+      .catch(error => {
+        hideTypingIndicator();
+        removeStreamingMessage(streamingMessageId);
+        reject(error);
+      });
+    });
+  }
+
+  async function sendMessageWithFetch(message) {
     showLoading();
     
-    // Send to API
-    fetch(config.apiUrl + '/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ 
-        message: message,
-        conversationId: conversationId 
-      })
-    })
-    .then(response => response.json())
-    .then(data => {
+    try {
+      const response = await fetch(config.apiUrl + '/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          message: message,
+          conversationId: conversationId 
+        })
+      });
+      
+      const data = await response.json();
       hideLoading();
       
       // Store conversation ID
@@ -491,25 +709,132 @@
         conversationId = data.conversationId;
       }
       
-      // Add bot response
+      // Add bot response with markdown formatting
       addMessage('bot', data.response, data.isCrisis);
       
-      // Log for analytics (if needed)
-      console.log('Ask Eve response:', {
+      // Log for analytics
+      console.log('Ask Eve response (fallback):', {
         isCrisis: data.isCrisis,
         responseTime: data.responseTime
       });
-    })
-    .catch(error => {
+      
+      return data;
+    } catch (error) {
       hideLoading();
       console.error('Ask Eve error:', error);
       addMessage('bot', 
         'I apologize, but I\'m experiencing technical difficulties. For immediate health support, please call NHS 111 or emergency services 999.',
         false
       );
-    });
+      throw error;
+    }
   }
   
+  // Streaming message functions
+  function addStreamingMessage(sender, messageId) {
+    const messages = document.getElementById('ask-eve-messages');
+    const messageDiv = document.createElement('div');
+    
+    messageDiv.className = `ask-eve-message ask-eve-${sender}-message`;
+    messageDiv.id = messageId;
+    
+    const avatar = document.createElement('div');
+    avatar.className = 'ask-eve-avatar';
+    avatar.textContent = sender === 'user' ? '👤' : '🌸';
+    
+    const textDiv = document.createElement('div');
+    textDiv.className = 'ask-eve-text streaming-text';
+    textDiv.innerHTML = '<span class="streaming-cursor">|</span>'; // Blinking cursor
+    
+    messageDiv.appendChild(avatar);
+    messageDiv.appendChild(textDiv);
+    messages.appendChild(messageDiv);
+    
+    // Scroll to bottom
+    messages.scrollTop = messages.scrollHeight;
+    
+    return messageDiv;
+  }
+  
+  function updateStreamingMessage(messageId, text, isCrisis = false) {
+    const messageDiv = document.getElementById(messageId);
+    if (!messageDiv) return;
+    
+    const textDiv = messageDiv.querySelector('.ask-eve-text');
+    if (!textDiv) return;
+    
+    // Update crisis class if needed
+    if (isCrisis && !textDiv.classList.contains('ask-eve-crisis')) {
+      textDiv.classList.add('ask-eve-crisis');
+    }
+    
+    // Convert markdown and add streaming cursor
+    const formattedText = parseMarkdown(text);
+    textDiv.innerHTML = formattedText + '<span class="streaming-cursor">|</span>';
+    
+    // Scroll to bottom
+    const messages = document.getElementById('ask-eve-messages');
+    messages.scrollTop = messages.scrollHeight;
+  }
+  
+  function finalizeStreamingMessage(messageId, text, metadata = {}) {
+    const messageDiv = document.getElementById(messageId);
+    if (!messageDiv) return;
+    
+    const textDiv = messageDiv.querySelector('.ask-eve-text');
+    if (!textDiv) return;
+    
+    // Remove streaming cursor and finalize
+    textDiv.classList.remove('streaming-text');
+    const formattedText = parseMarkdown(text);
+    textDiv.innerHTML = formattedText;
+    
+    // Log for analytics
+    if (metadata) {
+      console.log('Ask Eve streaming response:', {
+        isCrisis: metadata.isCrisis,
+        responseTime: metadata.responseTime,
+        hasEscalation: metadata.hasEscalation
+      });
+    }
+  }
+  
+  function removeStreamingMessage(messageId) {
+    const messageDiv = document.getElementById(messageId);
+    if (messageDiv) {
+      messageDiv.remove();
+    }
+  }
+
+  // Enhanced markdown parser for healthcare formatting
+  function parseMarkdown(text) {
+    if (!text) return '';
+    
+    // Split into paragraphs and process each one
+    const paragraphs = text.split('\n').filter(p => p.trim());
+    
+    return paragraphs.map(paragraph => {
+      let processed = paragraph;
+      
+      // Bold text: **text** -> <strong>text</strong>
+      processed = processed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      
+      // Italic text: *text* -> <em>text</em>
+      processed = processed.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      
+      // Emergency indicators: 🚨 -> highlighted
+      processed = processed.replace(/🚨/g, '<span class="emergency-icon">🚨</span>');
+      
+      // Bullet points: • -> proper list items
+      if (processed.trim().startsWith('•')) {
+        return `<li>${processed.substring(1).trim()}</li>`;
+      }
+      
+      // Regular paragraphs
+      return `<p>${processed}</p>`;
+    }).join('');
+  }
+
   function addMessage(sender, text, isCrisis = false) {
     const messages = document.getElementById('ask-eve-messages');
     const messageDiv = document.createElement('div');
@@ -523,13 +848,18 @@
     const textDiv = document.createElement('div');
     textDiv.className = `ask-eve-text${isCrisis ? ' ask-eve-crisis' : ''}`;
     
-    // Convert newlines to paragraphs
-    const paragraphs = text.split('\n').filter(p => p.trim());
-    paragraphs.forEach(paragraph => {
-      const p = document.createElement('p');
-      p.textContent = paragraph;
-      textDiv.appendChild(p);
-    });
+    if (sender === 'user') {
+      // User messages stay as plain text
+      const paragraphs = text.split('\n').filter(p => p.trim());
+      paragraphs.forEach(paragraph => {
+        const p = document.createElement('p');
+        p.textContent = paragraph;
+        textDiv.appendChild(p);
+      });
+    } else {
+      // Bot messages get markdown formatting
+      textDiv.innerHTML = parseMarkdown(text);
+    }
     
     messageDiv.appendChild(avatar);
     messageDiv.appendChild(textDiv);
@@ -539,6 +869,34 @@
     messages.scrollTop = messages.scrollHeight;
   }
   
+  function showTypingIndicator() {
+    const messages = document.getElementById('ask-eve-messages');
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'ask-eve-message ask-eve-bot-message';
+    typingDiv.id = 'ask-eve-typing-indicator';
+    
+    typingDiv.innerHTML = `
+      <div class="ask-eve-avatar">🌸</div>
+      <div class="ask-eve-text">
+        <div class="typing-indicator">
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+        </div>
+      </div>
+    `;
+    
+    messages.appendChild(typingDiv);
+    messages.scrollTop = messages.scrollHeight;
+  }
+  
+  function hideTypingIndicator() {
+    const typingIndicator = document.getElementById('ask-eve-typing-indicator');
+    if (typingIndicator) {
+      typingIndicator.remove();
+    }
+  }
+
   function showLoading() {
     const messages = document.getElementById('ask-eve-messages');
     const loadingDiv = document.createElement('div');

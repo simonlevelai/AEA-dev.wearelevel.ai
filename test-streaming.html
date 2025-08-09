@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ask Eve Streaming Test</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; margin: 40px; }
+        .test-container { max-width: 600px; background: #f8f9fa; padding: 20px; border-radius: 8px; }
+        .test-output { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb; }
+        button { background: #d63384; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #c12d5f; }
+        .streaming-text { border-left: 3px solid #d63384; padding-left: 16px; }
+        strong { color: #1f2937; font-weight: 600; }
+        .emergency-icon { color: #dc2626; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Ask Eve Streaming & Markdown Test</h1>
+        
+        <button onclick="testStreaming()">Test Streaming Response</button>
+        
+        <div id="output" class="test-output">
+            <p>Click the button to test streaming response with markdown formatting...</p>
+        </div>
+        
+        <div class="streaming-text">
+            <h3>Expected Formatting:</h3>
+            <p><strong>Bold text</strong> for emphasis</p>
+            <p><em>Italic text</em> for subtle emphasis</p>
+            <p>🚨 <span class="emergency-icon">Emergency indicators</span> with special styling</p>
+            <ul style="list-style: none; padding-left: 16px;">
+                <li style="position: relative;"><span style="color: #d63384; position: absolute; left: -16px;">•</span>Bullet point formatting</li>
+                <li style="position: relative;"><span style="color: #d63384; position: absolute; left: -16px;">•</span>Healthcare information</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        async function testStreaming() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<p style="color: #6b7280;">🌊 Starting streaming test...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:3002/api/chat/stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: "I'm worried about **HPV** and how it relates to cervical cancer. Can you help?",
+                        conversationId: "test-markdown-streaming"
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                // Read the streaming response
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let accumulatedText = '';
+                
+                function parseMarkdown(text) {
+                    if (!text) return '';
+                    
+                    const paragraphs = text.split('\\n').filter(p => p.trim());
+                    
+                    return paragraphs.map(paragraph => {
+                        let processed = paragraph;
+                        
+                        // Bold text
+                        processed = processed.replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>');
+                        
+                        // Italic text  
+                        processed = processed.replace(/\\*(.*?)\\*/g, '<em>$1</em>');
+                        
+                        // Emergency indicators
+                        processed = processed.replace(/🚨/g, '<span class="emergency-icon">🚨</span>');
+                        
+                        // Bullet points
+                        if (processed.trim().startsWith('•')) {
+                            return `<li style="margin: 4px 0; list-style: none; position: relative; padding-left: 16px;"><span style="color: #d63384; font-weight: bold; position: absolute; left: 0;">•</span>${processed.substring(1).trim()}</li>`;
+                        }
+                        
+                        return `<p>${processed}</p>`;
+                    }).join('');
+                }
+                
+                function readStream() {
+                    return reader.read().then(({ done, value }) => {
+                        if (done) {
+                            output.innerHTML = `<div class="streaming-text">${parseMarkdown(accumulatedText)}</div>`;
+                            return;
+                        }
+                        
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\\n');
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                const data = line.slice(6);
+                                
+                                if (data === '[DONE]') {
+                                    output.innerHTML = `<div class="streaming-text">${parseMarkdown(accumulatedText)}</div>`;
+                                    return;
+                                }
+                                
+                                try {
+                                    const parsed = JSON.parse(data);
+                                    
+                                    if (parsed.type === 'chunk') {
+                                        accumulatedText += parsed.content;
+                                        // Show streaming progress with cursor
+                                        output.innerHTML = `<div class="streaming-text">${parseMarkdown(accumulatedText)}<span style="color: #d63384; animation: blink 1s infinite;">|</span></div>`;
+                                    }
+                                } catch (e) {
+                                    // Ignore JSON parse errors
+                                }
+                            }
+                        }
+                        
+                        return readStream();
+                    });
+                }
+                
+                await readStream();
+                
+            } catch (error) {
+                console.error('Streaming test error:', error);
+                output.innerHTML = `<p style="color: #dc2626;">❌ Error: ${error.message}</p>`;
+            }
+        }
+        
+        // Add blink animation for cursor
+        const style = document.createElement('style');
+        style.textContent = '@keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }';
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

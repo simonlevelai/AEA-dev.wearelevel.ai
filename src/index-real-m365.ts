@@ -625,6 +625,156 @@ Be empathetic, supportive, and always recommend consulting a GP for medical conc
   }
 
   /**
+   * Process healthcare message with streaming support for enhanced UI
+   */
+  public async processHealthcareMessageWithStreaming(
+    message: string, 
+    userId: string, 
+    conversationId: string, 
+    streamingContext: { write: (chunk: string) => void; end: (data?: any) => void }
+  ): Promise<void> {
+    const startTime = Date.now();
+    
+    try {
+      this.logger.info('🌊 Processing healthcare message with streaming', {
+        messageLength: message.length,
+        userId,
+        conversationId
+      });
+
+      // STEP 1: Crisis Detection (<500ms requirement)
+      const crisisResult = this.detectCrisis(message);
+      
+      if (crisisResult.isCrisis) {
+        this.logger.info('🚨 CRISIS DETECTED - Streaming crisis response', {
+          severity: crisisResult.severity,
+          userId
+        });
+        
+        const crisisResponse = this.generateCrisisResponse();
+        await this.streamResponse(crisisResponse, streamingContext);
+        
+        // Escalate to healthcare team if webhook configured
+        if (this.teamsWebhookUrl) {
+          await this.escalateToHealthcareTeam(message, userId, crisisResult.severity);
+        }
+        
+        streamingContext.end({ 
+          isCrisis: true, 
+          escalated: !!this.teamsWebhookUrl,
+          conversationId,
+          userId 
+        });
+        return;
+      }
+
+      // STEP 2: Generate healthcare response with RAG
+      this.logger.info('💊 Streaming healthcare information (MHRA Compliant)', { userId });
+      
+      const healthcareResponse = await this.generateHealthcareResponseWithRAG(message);
+      await this.streamResponse(healthcareResponse, streamingContext);
+
+      // STEP 3: Check for nurse escalation triggers
+      const escalationTrigger = this.detectNurseEscalationTrigger(message, []);
+      
+      if (escalationTrigger) {
+        this.logger.info('🩺 Escalation trigger detected, streaming support offer', {
+          scenario: escalationTrigger.scenario,
+          priority: escalationTrigger.priority
+        });
+
+        if (escalationTrigger.priority === 'high') {
+          // Immediate escalation for high priority
+          const escalationResponse = '\n\n' + this.generateSupportSuggestion(escalationTrigger);
+          await this.streamResponse(escalationResponse, streamingContext, 200); // Small delay for readability
+        } else {
+          // Support offer for medium/low priority
+          const supportOffer = '\n\n' + this.generateSupportSuggestion(escalationTrigger);
+          await this.streamResponse(supportOffer, streamingContext, 300); // Longer delay for support offers
+        }
+        
+        streamingContext.end({ 
+          hasEscalation: true, 
+          escalationPriority: escalationTrigger.priority,
+          conversationId,
+          userId 
+        });
+      } else {
+        streamingContext.end({ 
+          hasEscalation: false,
+          conversationId,
+          userId 
+        });
+      }
+
+    } catch (error) {
+      this.logger.error('❌ Streaming healthcare message error:', {
+        error: error instanceof Error ? error.message : error,
+        userId,
+        conversationId
+      });
+      
+      const errorResponse = 'I apologise, but I\'m experiencing technical difficulties. For immediate health support, please call NHS 111 or emergency services 999.';
+      await this.streamResponse(errorResponse, streamingContext);
+      
+      streamingContext.end({ 
+        error: true,
+        conversationId,
+        userId 
+      });
+    }
+  }
+
+  /**
+   * Stream response text with natural typing animation
+   */
+  private async streamResponse(
+    text: string, 
+    streamingContext: { write: (chunk: string) => void; end?: (data?: any) => void },
+    initialDelay: number = 50
+  ): Promise<void> {
+    // Add initial delay before streaming starts
+    if (initialDelay > 0) {
+      await this.sleep(initialDelay);
+    }
+
+    // Split text into words for natural streaming
+    const words = text.split(' ');
+    
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      const isLastWord = i === words.length - 1;
+      
+      // Stream word with space (except last word)
+      const chunk = isLastWord ? word : word + ' ';
+      streamingContext.write(chunk);
+      
+      // Variable delay based on content type for natural reading flow
+      let delay = 80; // Base delay
+      
+      if (word.includes('🚨') || word.includes('**')) {
+        delay = 120; // Slower for emphasis
+      } else if (word.endsWith('.') || word.endsWith('?') || word.endsWith('!')) {
+        delay = 200; // Pause at sentence endings
+      } else if (word.includes('\n')) {
+        delay = 300; // Longer pause for paragraph breaks
+      }
+      
+      // Don't delay after the last word
+      if (!isLastWord) {
+        await this.sleep(delay);
+      }
+    }
+  }
+
+  /**
+   * Sleep utility for streaming delays
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
    * Handle new members added with welcome message
    */
   private async handleMembersAdded(context: TurnContext): Promise<void> {
@@ -1737,6 +1887,101 @@ async function startRealM365AgentsServer(): Promise<void> {
     // Main bot endpoint (standard Bot Framework endpoint)
     app.post('/api/messages', async (req, res) => {
       await adapter.process(req, res, (context) => bot.run(context));
+    });
+
+    // Streaming chat endpoint with Server-Sent Events for enhanced UI
+    app.post('/api/chat/stream', chatLimiter, async (req, res): Promise<void> => {
+      const startTime = Date.now();
+      
+      try {
+        const { message: rawMessage, userId, conversationId } = req.body;
+        
+        if (!rawMessage) {
+          res.status(400).json({ 
+            error: 'Message is required',
+            emergencyContacts: {
+              emergency: '999',
+              samaritans: '116 123',
+              nhs: '111'
+            }
+          });
+          return;
+        }
+        
+        // Set SSE headers for streaming
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type',
+          'Access-Control-Allow-Methods': 'POST, GET, OPTIONS'
+        });
+
+        // Send initial metadata
+        const metadata = {
+          conversationId: conversationId || `web-${Date.now()}`,
+          userId: userId || 'web-user',
+          timestamp: new Date().toISOString(),
+          sdk: 'Real M365 SDK'
+        };
+        res.write(`data: ${JSON.stringify({type: 'metadata', ...metadata})}\n\n`);
+
+        // Security Layer 1: Sanitise input using bot's method
+        const sanitizedMessage = bot.sanitizeInput(rawMessage);
+        
+        if (!sanitizedMessage) {
+          res.write(`data: ${JSON.stringify({
+            type: 'error',
+            error: 'I didn\'t receive a valid message. Please ask me about gynaecological health topics.',
+            isCrisis: false
+          })}\n\n`);
+          res.write('data: [DONE]\n\n');
+          res.end();
+          return;
+        }
+
+        // Create streaming context for bot
+        let streamingResponse = '';
+        const streamingContext = {
+          write: (chunk: string) => {
+            streamingResponse += chunk;
+            res.write(`data: ${JSON.stringify({
+              type: 'chunk', 
+              content: chunk,
+              isCrisis: chunk.includes('🚨')
+            })}\n\n`);
+          },
+          end: (finalData?: any) => {
+            res.write(`data: ${JSON.stringify({
+              type: 'complete',
+              response: streamingResponse,
+              responseTime: Date.now() - startTime,
+              isCrisis: streamingResponse.includes('🚨'),
+              hasEscalation: streamingResponse.includes('Ask Eve nurse') || streamingResponse.includes('speak with one of our'),
+              ...finalData
+            })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            res.end();
+          }
+        };
+
+        // Process healthcare message with streaming
+        await bot.processHealthcareMessageWithStreaming(sanitizedMessage, metadata.userId, metadata.conversationId, streamingContext);
+
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error('❌ Streaming API error:', errorMessage);
+        
+        res.write(`data: ${JSON.stringify({
+          type: 'error',
+          error: 'I apologise, but I\'m experiencing technical difficulties. For immediate health support, please call NHS 111 or emergency services 999.',
+          isCrisis: false,
+          responseTime: Date.now() - startTime
+        })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+      }
     });
 
     // Legacy chat endpoint for widget compatibility
