@@ -672,7 +672,7 @@ Be empathetic, supportive, and always recommend consulting a GP for medical conc
       this.logger.info('💊 Streaming healthcare information (MHRA Compliant)', { userId });
       
       const healthcareResponse = await this.generateHealthcareResponseWithRAG(message);
-      await this.streamResponse(healthcareResponse, streamingContext);
+      await this.streamResponse(healthcareResponse, streamingContext, 300); // Initial delay for natural feel
 
       // STEP 3: Check for nurse escalation triggers
       const escalationTrigger = this.detectNurseEscalationTrigger(message, []);
@@ -686,11 +686,11 @@ Be empathetic, supportive, and always recommend consulting a GP for medical conc
         if (escalationTrigger.priority === 'high') {
           // Immediate escalation for high priority
           const escalationResponse = '\n\n' + this.generateSupportSuggestion(escalationTrigger);
-          await this.streamResponse(escalationResponse, streamingContext, 200); // Small delay for readability
+          await this.streamResponse(escalationResponse, streamingContext, 800); // Pause before escalation
         } else {
           // Support offer for medium/low priority
           const supportOffer = '\n\n' + this.generateSupportSuggestion(escalationTrigger);
-          await this.streamResponse(supportOffer, streamingContext, 300); // Longer delay for support offers
+          await this.streamResponse(supportOffer, streamingContext, 1000); // Longer pause for support offers
         }
         
         streamingContext.end({ 
@@ -750,14 +750,16 @@ Be empathetic, supportive, and always recommend consulting a GP for medical conc
       streamingContext.write(chunk);
       
       // Variable delay based on content type for natural reading flow
-      let delay = 80; // Base delay
+      let delay = 150; // Slower base delay for better readability
       
       if (word.includes('🚨') || word.includes('**')) {
-        delay = 120; // Slower for emphasis
+        delay = 250; // Much slower for emphasis
       } else if (word.endsWith('.') || word.endsWith('?') || word.endsWith('!')) {
-        delay = 200; // Pause at sentence endings
+        delay = 400; // Longer pause at sentence endings
       } else if (word.includes('\n')) {
-        delay = 300; // Longer pause for paragraph breaks
+        delay = 600; // Much longer pause for paragraph breaks
+      } else if (word.length > 6) {
+        delay = 180; // Slightly slower for longer words
       }
       
       // Don't delay after the last word

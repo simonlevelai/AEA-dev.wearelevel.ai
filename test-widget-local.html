@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ask Eve Widget - Local Streaming Test</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; 
+            margin: 40px;
+            background: #f8f9fa;
+        }
+        .demo-container {
+            max-width: 800px;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin: 0 auto;
+        }
+        .demo-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .demo-header h1 {
+            color: #d63384;
+            margin-bottom: 10px;
+        }
+        .feature-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .feature {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #d63384;
+        }
+        .feature h3 {
+            margin: 0 0 10px 0;
+            color: #1f2937;
+            font-size: 16px;
+        }
+        .feature p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .test-instructions {
+            background: #e0f2fe;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #0891b2;
+            margin: 20px 0;
+        }
+        .test-instructions h3 {
+            margin: 0 0 10px 0;
+            color: #0891b2;
+        }
+        .test-instructions ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .test-instructions li {
+            margin: 5px 0;
+            color: #0f172a;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-header">
+            <h1>🌊 Ask Eve Widget - Streaming Test</h1>
+            <p>Testing the new streaming chat UI with markdown formatting</p>
+        </div>
+        
+        <div class="feature-list">
+            <div class="feature">
+                <h3>🔄 Real-Time Streaming</h3>
+                <p>Watch text appear word-by-word with natural timing delays</p>
+            </div>
+            
+            <div class="feature">
+                <h3>📝 Markdown Formatting</h3>
+                <p><strong>Bold</strong> and <em>italic</em> text render properly</p>
+            </div>
+            
+            <div class="feature">
+                <h3>🚨 Crisis Detection</h3>
+                <p>Emergency content gets special highlighting</p>
+            </div>
+            
+            <div class="feature">
+                <h3>🩺 Healthcare Focus</h3>
+                <p>Medical content with nurse escalation support</p>
+            </div>
+        </div>
+        
+        <div class="test-instructions">
+            <h3>🧪 Test Instructions</h3>
+            <ul>
+                <li>Click the <strong>"Ask Eve"</strong> button in the bottom-right corner</li>
+                <li>Try: <em>"I had an abnormal smear result and I'm scared"</em></li>
+                <li>Watch for: <strong>Streaming text effect</strong> + <strong>Bold formatting</strong></li>
+                <li>Look for: <em>Escalation offer</em> at the end</li>
+                <li>Expected: <strong>NO</strong> raw markdown (like **bold** text)</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Ask Eve Widget with LOCAL server URL -->
+    <script src="ask-eve-widget.js" data-api-url="http://localhost:3002"></script>
+</body>
+</html>
