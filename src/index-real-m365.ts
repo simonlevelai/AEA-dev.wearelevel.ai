@@ -24,6 +24,13 @@ import axios from 'axios';
 import path from 'path';
 import * as fs from 'fs';
 
+// Data retention services
+import { 
+  AzureTableStorageService, 
+  DataRetentionType,
+  RETENTION_PERIODS 
+} from './services/AzureTableStorageService';
+
 // Simple inline logger
 class SimpleLogger {
   constructor(private component: string) {}
@@ -433,12 +440,43 @@ Be empathetic, supportive, and always recommend consulting a GP for medical conc
       userProfile.totalMessages++;
       conversationData.lastMessageTime = Date.now();
 
+      // DEBUG: Log conversation state for UAT debugging
+      this.logger.info('🔍 CONVERSATION STATE DEBUG', {
+        escalationActive: conversationData.escalationState?.isActive,
+        escalationStep: conversationData.escalationState?.step,
+        totalMessages: userProfile.totalMessages,
+        conversationId: context.activity.conversation?.id,
+        userId: userId
+      });
+
+      // DEFENSIVE FIX: Reset escalation state for first message to prevent cross-contamination
+      if (userProfile.totalMessages === 1 || !conversationData.escalationState) {
+        this.logger.info('🛡️ DEFENSIVE STATE RESET: New conversation detected, ensuring clean escalation state');
+        conversationData.escalationState = { isActive: false, step: 'none' };
+      }
+
+      // ADDITIONAL DEFENSIVE CHECK: Reset if escalation state is corrupted
+      if (conversationData.escalationState && conversationData.escalationState.isActive) {
+        // Check if escalation is truly active (has valid start time within last 24 hours)
+        const now = Date.now();
+        const escalationAge = conversationData.escalationState.startTime ? now - conversationData.escalationState.startTime : Number.MAX_SAFE_INTEGER;
+        const maxEscalationAge = 24 * 60 * 60 * 1000; // 24 hours
+        
+        if (escalationAge > maxEscalationAge) {
+          this.logger.info('🧹 CLEANUP: Expired escalation state detected, resetting', {
+            escalationAge: Math.round(escalationAge / (60 * 1000)) + ' minutes',
+            maxAge: '24 hours'
+          });
+          conversationData.escalationState = { isActive: false, step: 'none' };
+        }
+      }
+
       // STEP 1: Crisis Detection (<500ms requirement)
       const crisisResult = this.detectCrisis(messageText);
       const crisisCheckTime = Date.now() - startTime;
       
       if (crisisResult.isCrisis) {
-        this.logger.info('🚨 CRISIS DETECTED', {
+        this.logger.info('🚨 CRISIS DETECTED - Taking crisis response path', {
           responseTime: crisisCheckTime,
           severity: crisisResult.severity,
           metRequirement: crisisCheckTime < 500,
@@ -456,6 +494,13 @@ Be empathetic, supportive, and always recommend consulting a GP for medical conc
         }
         
       } else if (conversationData.escalationState?.isActive) {
+        this.logger.info('📞 ONGOING ESCALATION DETECTED - Taking escalation workflow path', {
+          escalationStep: conversationData.escalationState.step,
+          escalationScenario: conversationData.escalationState.scenario,
+          escalationStartTime: conversationData.escalationState.startTime,
+          userId
+        });
+        
         // STEP 2A: Handle ongoing nurse escalation workflow
         const escalationResult = await this.processNurseEscalationStep(
           messageText, 
@@ -467,6 +512,11 @@ Be empathetic, supportive, and always recommend consulting a GP for medical conc
         await context.sendActivity(escalationResult.response);
         
       } else {
+        this.logger.info('🩺 NORMAL CONVERSATION FLOW - Medical info first, then escalation check', {
+          userId,
+          messageLength: messageText.length,
+          escalationStateWas: conversationData.escalationState ? 'inactive' : 'undefined'
+        });
         // STEP 2B: Check if user is responding positively to a previous support offer
         const isPreviousSupportOfferResponse = this.isPreviousSupportOfferResponse(messageText, conversationData.conversationHistory);
         
@@ -485,24 +535,60 @@ Be empathetic, supportive, and always recommend consulting a GP for medical conc
           await context.sendActivity(escalationFlow.response);
           
         } else {
+          this.logger.info('💊 STEP 2C: Providing healthcare information first (MHRA Compliant)', { userId });
+          
           // STEP 2C: Always provide healthcare information first (MHRA Compliant)
           const healthcareResponse = await this.generateHealthcareResponseWithRAG(messageText);
+          this.logger.info('✅ Healthcare response generated successfully', { 
+            responseLength: healthcareResponse.length,
+            userId 
+          });
+          
           await context.sendActivity(healthcareResponse);
+          this.logger.info('📤 Healthcare response sent to user', { userId });
           
           // STEP 2D: Then check if user might benefit from additional nurse support
+          this.logger.info('🔍 STEP 2D: Checking for escalation triggers', { userId });
           const escalationTrigger = this.detectNurseEscalationTrigger(messageText, conversationData.conversationHistory);
           
           if (escalationTrigger) {
-            this.logger.info('🩺 ADDITIONAL SUPPORT SUGGESTED', {
+            this.logger.info('🚨 ESCALATION TRIGGER DETECTED', {
               scenario: escalationTrigger.scenario,
               priority: escalationTrigger.priority,
               uatCard: escalationTrigger.uatCard,
+              pattern: escalationTrigger.pattern.toString(),
               userId
             });
             
-            // Suggest nurse support as follow-up (don't auto-start GDPR flow)
-            const supportOffer = this.generateSupportSuggestion(escalationTrigger);
-            await context.sendActivity(supportOffer);
+            // For high-priority scenarios, offer escalation immediately
+            if (escalationTrigger.priority === 'high') {
+              this.logger.info('🔥 HIGH PRIORITY: Starting immediate GDPR consent flow', {
+                scenario: escalationTrigger.scenario,
+                userId
+              });
+              
+              const escalationFlow = this.startNurseEscalationFlow(escalationTrigger);
+              conversationData.escalationState = escalationFlow.escalationState;
+              await context.sendActivity(escalationFlow.response);
+              
+              this.logger.info('📞 GDPR consent flow started', { 
+                escalationStep: escalationFlow.escalationState.step,
+                userId
+              });
+              
+            } else {
+              this.logger.info('📋 MEDIUM/LOW PRIORITY: Offering support suggestion', {
+                scenario: escalationTrigger.scenario,
+                priority: escalationTrigger.priority,
+                userId
+              });
+              
+              // For medium/low priority, suggest support as follow-up
+              const supportOffer = this.generateSupportSuggestion(escalationTrigger);
+              await context.sendActivity(supportOffer);
+            }
+          } else {
+            this.logger.info('✅ No escalation triggers detected - conversation complete', { userId });
           }
         }
       }
@@ -1778,6 +1864,116 @@ async function startRealM365AgentsServer(): Promise<void> {
       }
     });
 
+    // Initialize Data Retention Service
+    let dataRetentionService: AzureTableStorageService | null = null;
+    if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
+      try {
+        dataRetentionService = new AzureTableStorageService({
+          connectionString: process.env.AZURE_STORAGE_CONNECTION_STRING
+        });
+        await dataRetentionService.initializeTables();
+        logger.info('✅ Data retention service initialized', {
+          retentionPeriods: RETENTION_PERIODS,
+          gdprCompliant: true
+        });
+      } catch (error) {
+        logger.error('❌ Failed to initialize data retention service:', error);
+        // Continue without data retention service (graceful degradation)
+      }
+    } else {
+      logger.warn('⚠️ Azure Storage connection string not configured - data retention disabled');
+    }
+
+    // Data retention management endpoints
+    app.get('/api/data-retention/health', async (req, res) => {
+      if (!dataRetentionService) {
+        res.status(503).json({
+          status: 'unavailable',
+          message: 'Data retention service not configured',
+          timestamp: new Date().toISOString()
+        });
+        return;
+      }
+
+      try {
+        const healthCheck = await dataRetentionService.healthCheck();
+        const stats = await dataRetentionService.getStorageStatistics();
+        
+        res.json({
+          status: healthCheck.isHealthy ? 'healthy' : 'unhealthy',
+          health: healthCheck,
+          statistics: stats,
+          retentionPeriods: RETENTION_PERIODS,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error('❌ Data retention health check failed:', errorMessage);
+        res.status(500).json({
+          status: 'error',
+          error: errorMessage,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    app.get('/api/data-retention/statistics', async (req, res) => {
+      if (!dataRetentionService) {
+        res.status(503).json({
+          error: 'Data retention service not configured'
+        });
+        return;
+      }
+
+      try {
+        const days = parseInt(req.query.days as string) || 30;
+        const statistics = await dataRetentionService.getDataRetentionStatistics(days);
+        
+        res.json({
+          statistics,
+          retentionPeriods: RETENTION_PERIODS,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error('❌ Failed to get data retention statistics:', errorMessage);
+        res.status(500).json({
+          error: errorMessage,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    app.post('/api/data-retention/cleanup', async (req, res) => {
+      if (!dataRetentionService) {
+        res.status(503).json({
+          error: 'Data retention service not configured'
+        });
+        return;
+      }
+
+      try {
+        logger.info('🧹 Manual data retention cleanup requested');
+        const results = await dataRetentionService.performDataRetentionCleanup();
+        
+        logger.info('✅ Manual data retention cleanup completed', results);
+        
+        res.json({
+          success: true,
+          results,
+          message: 'Data retention cleanup completed successfully',
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error('❌ Manual data retention cleanup failed:', errorMessage);
+        res.status(500).json({
+          error: errorMessage,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
     // Start server
     const port = parseInt(process.env.PORT || '3978', 10);
     const server = app.listen(port, '0.0.0.0', () => {
@@ -1786,7 +1982,10 @@ async function startRealM365AgentsServer(): Promise<void> {
         endpoints: {
           health: `http://localhost:${port}/health`,
           botFramework: `http://localhost:${port}/api/messages`,
-          chat: `http://localhost:${port}/api/chat`
+          chat: `http://localhost:${port}/api/chat`,
+          dataRetentionHealth: `http://localhost:${port}/api/data-retention/health`,
+          dataRetentionStats: `http://localhost:${port}/api/data-retention/statistics`,
+          manualCleanup: `http://localhost:${port}/api/data-retention/cleanup`
         },
         sdk: 'Microsoft 365 Agents SDK v1.0.0 (REAL)',
         architecture: 'ActivityHandler + CloudAdapter + State Management'

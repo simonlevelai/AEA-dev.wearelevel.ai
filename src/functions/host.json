@@ -1,0 +1,47 @@
+{
+  "version": "2.0",
+  "logging": {
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true,
+        "excludedTypes": "Request",
+        "maxTelemetryItemsPerSecond": 20
+      }
+    },
+    "logLevel": {
+      "default": "Information",
+      "Host.Results": "Warning",
+      "Function": "Information",
+      "DataRetention": "Information"
+    }
+  },
+  "functionTimeout": "00:10:00",
+  "healthMonitor": {
+    "enabled": true,
+    "healthCheckInterval": "00:00:30",
+    "healthCheckWindow": "00:02:00",
+    "healthCheckThreshold": 6,
+    "counterThreshold": 0.80
+  },
+  "retry": {
+    "strategy": "exponentialBackoff",
+    "maxRetryCount": 3,
+    "minimumInterval": "00:00:05",
+    "maximumInterval": "00:01:00"
+  },
+  "extensions": {
+    "timers": {
+      "maxConcurrentTimerInvocations": 1
+    }
+  },
+  "customHandler": {
+    "description": {
+      "defaultExecutablePath": "node",
+      "workingDirectory": "",
+      "arguments": [
+        "dist/functions/DataRetentionCleanupFunction.js"
+      ]
+    },
+    "enableForwardingHttpRequest": false
+  }
+}

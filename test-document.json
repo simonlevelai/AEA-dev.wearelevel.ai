@@ -1,0 +1,10 @@
+{
+  "value": [{
+    "@search.action": "upload",
+    "id": "test-single-upload-001",
+    "title": "Test Document",
+    "content": "This is a test document to verify single upload functionality.",
+    "source": "Test Source",
+    "category": "Test Category"
+  }]
+}

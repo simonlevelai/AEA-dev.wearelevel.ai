@@ -1,121 +1,110 @@
 /**
- * Azure Table Storage Schema for M365 Agent Conversations
- * Adapted from existing Supabase schema for ultra-cheap architecture
+ * Azure Table Storage Schema - Clean Implementation
+ * Complete schema definitions for GDPR-compliant data retention
  */
 
-import { TableEntity } from '@azure/data-tables';
-import { ConversationState, UserContactInfo, ConversationTopic, ConversationStage, ConsentStatus } from '../types/conversation';
-
-// Base entity with Azure Table Storage required fields
-interface BaseEntity extends TableEntity {
+/**
+ * Base interface for all Azure Table Storage entities
+ */
+export interface BaseEntity {
   partitionKey: string;
   rowKey: string;
   timestamp?: Date;
   etag?: string;
+  ttl?: number; // TTL in seconds for GDPR compliance
 }
 
 /**
- * Conversation State Entity - Adapted from existing ConversationState
- * PartitionKey: conversationId
- * RowKey: 'state'
+ * Conversation State Entity for Azure Table Storage
  */
 export interface ConversationStateEntity extends BaseEntity {
-  // Required Azure Table Storage fields
-  partitionKey: string; // conversationId
-  rowKey: 'state';
-  
-  // Core conversation data (from existing ConversationState)
   conversationId: string;
   userId: string;
   sessionId: string;
-  currentTopic: ConversationTopic;
-  currentStage: ConversationStage;
-  consentStatus: ConsentStatus;
-  
-  // User contact info (JSON serialized)
-  userContactInfo?: string; // JSON serialized UserContactInfo
-  
-  // Conversation flow state
+  currentTopic: string;
+  currentStage: string;
+  consentStatus: string;
+  userContactInfo?: string; // JSON serialized
   conversationStarted: boolean;
   hasSeenOpeningStatement: boolean;
-  lastActivity: number; // Unix timestamp
+  lastActivity: number;
   messageCount: number;
-  topics: string; // JSON serialized array
-  context?: string; // JSON serialized context object
-  
-  // Escalation data
+  topics: string; // JSON array
+  context?: string; // JSON serialized
   escalationRequired?: boolean;
   escalationId?: string;
   escalatedToNurse?: boolean;
   escalationTimestamp?: Date;
-  
-  // Satisfaction and completion
   satisfactionRating?: number;
   completionReason?: string;
-  
-  // GDPR compliance - TTL for automatic deletion after 30 days
-  ttl?: number;
+  crisisDetected?: boolean;
 }
 
 /**
- * PiF Content Entity - Adapted from existing Supabase pif_content_chunks
- * PartitionKey: 'pif-content'
- * RowKey: chunk_id
+ * PiF Content Entity for healthcare information storage
  */
 export interface PiFContentEntity extends BaseEntity {
-  partitionKey: 'pif-content';
-  rowKey: string; // chunk_id
-  
-  // Core content data (from existing pif_content_chunks)
-  id: string; // UUID equivalent
-  chunkId: string;
-  title?: string;
+  contentId: string;
+  title: string;
   content: string;
-  contentType: string; // default: 'medical_information'
-  priorityLevel: 'critical' | 'high' | 'medium' | 'low';
-  sourceUrl: string;
-  pageNumber?: number;
+  category: string;
+  tags?: string; // JSON array
+  lastUpdated: Date;
+  version: number;
+  isActive: boolean;
   
-  // Keywords and categories (JSON serialized arrays)
-  relevanceKeywords: string; // JSON serialized string[]
-  medicalCategories: string; // JSON serialized string[]
+  // Extended properties for PiF content chunks
+  id?: string; // Chunk identifier
+  chunkId?: string; // Alternative chunk ID
+  contentType?: string; // Type of content
+  priorityLevel?: 'critical' | 'high' | 'medium' | 'low';
+  sourceUrl?: string; // Source URL
+  pageNumber?: number; // Page number in source
+  relevanceKeywords?: string; // JSON array of keywords
+  medicalCategories?: string; // JSON array of medical categories
+  metadata?: string; // JSON serialized metadata
+  createdAt?: Date; // Creation timestamp
   
-  // Metadata
-  metadata: string; // JSON serialized object
-  createdAt: Date;
-  
-  // For vector search (when we add it)
-  vectorEmbedding?: string; // JSON serialized number[] for future use
+  // GDPR compliance - content kept for longer periods  
+  ttl?: number; // Extended retention for medical content
 }
 
 /**
- * Search Log Entity - Adapted from existing content_search_logs
- * PartitionKey: 'search-logs'
- * RowKey: timestamp-searchId
+ * Search Log Entity for operational monitoring
  */
 export interface SearchLogEntity extends BaseEntity {
-  partitionKey: 'search-logs';
-  rowKey: string; // format: {timestamp}-{searchId}
-  
-  // Core search data (from existing content_search_logs)
-  id: string;
+  searchId: string;
   query: string;
-  matchedChunks: string; // JSON serialized UUID[]
-  responseGenerated: boolean;
-  searchMethod: string; // default: 'keyword', could be 'vector' later
-  responseTimeMs?: number;
-  userSatisfied?: boolean;
+  timestamp: Date;
+  resultsCount: number;
+  responseTimeMs: number;
+  userId?: string;
+  sessionId?: string;
+  responseGenerated?: boolean; // Whether response was generated
+  searchMethod?: string; // Method used for search
   
-  // Metadata
-  metadata: string; // JSON serialized object
+  // GDPR compliance - search logs kept for 30 days
+  ttl?: number; // 30 days
+}
+
+/**
+ * Audit Log Entity for compliance tracking
+ */
+export interface AuditLogEntity extends BaseEntity {
+  auditId: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  userId?: string;
+  details?: string; // JSON serialized
+  timestamp: Date;
+  ipAddress?: string;
+  userAgent?: string;
+  outcome: 'success' | 'failure' | 'partial';
   createdAt: Date;
   
-  // Agent information
-  agentId?: string; // Which agent performed this search
-  conversationId?: string;
-  
-  // GDPR compliance
-  ttl?: number; // 30 days
+  // GDPR compliance - audit logs kept for 365 days
+  ttl?: number; // 365 days for compliance
 }
 
 /**
@@ -128,7 +117,29 @@ export interface AzureTableStorageConfig {
 }
 
 /**
- * Utility functions for Azure Table Storage operations
+ * Data retention types for differentiated GDPR compliance
+ */
+export enum DataRetentionType {
+  CONVERSATION_DATA = 'conversation_data',          // 30 days - basic interactions
+  SEARCH_LOGS = 'search_logs',                     // 30 days - operational data  
+  CRISIS_RESPONSE = 'crisis_response',             // 730 days (2 years) - safety monitoring
+  AUDIT_LOGS = 'audit_logs',                       // 365 days - compliance tracking
+  ADMINISTRATIVE_TRIAGE = 'administrative_triage'   // 30 days - post-handover to nurses
+}
+
+/**
+ * Retention periods in days for different data types
+ */
+export const RETENTION_PERIODS: Record<DataRetentionType, number> = {
+  [DataRetentionType.CONVERSATION_DATA]: 30,        // Standard conversation data
+  [DataRetentionType.SEARCH_LOGS]: 30,             // Operational search logs  
+  [DataRetentionType.CRISIS_RESPONSE]: 730,        // Crisis data (2 years for safety)
+  [DataRetentionType.AUDIT_LOGS]: 365,             // Compliance and audit logs
+  [DataRetentionType.ADMINISTRATIVE_TRIAGE]: 30     // Triage coordination data
+};
+
+/**
+ * Utility functions for Azure Table Storage operations with GDPR compliance
  */
 export class AzureTableStorageUtils {
   
@@ -140,49 +151,98 @@ export class AzureTableStorageUtils {
     const expiryDate = new Date(now.getTime() + (daysFromNow * 24 * 60 * 60 * 1000));
     return Math.floor(expiryDate.getTime() / 1000); // Unix timestamp in seconds
   }
-  
+
   /**
-   * Generate sortable row key with timestamp
+   * Calculate TTL based on data retention type
    */
-  static getSortableRowKey(timestamp: Date, suffix?: string): string {
-    const sortableTimestamp = timestamp.toISOString().replace(/[:.]/g, '');
-    return suffix ? `${sortableTimestamp}-${suffix}` : sortableTimestamp;
+  static calculateTTLForDataType(dataType: DataRetentionType): number {
+    const days = RETENTION_PERIODS[dataType];
+    return this.generateTTL(days);
   }
-  
+
   /**
-   * Convert existing Supabase ConversationState to Table Storage entity
+   * Check if an entity is expired based on TTL
    */
-  static convertConversationStateToEntity(state: ConversationState): Omit<ConversationStateEntity, 'partitionKey' | 'rowKey'> {
-    return {
-      ...state,
-      userContactInfo: state.userContactInfo ? JSON.stringify(state.userContactInfo) : undefined,
-      topics: JSON.stringify(state.topics),
-      context: state.context ? JSON.stringify(state.context) : undefined,
-      ttl: this.generateTTL(30) // 30 days GDPR compliance
-    };
+  static isEntityExpired(entity: BaseEntity): boolean {
+    if (!entity.ttl) return false;
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    return currentTimestamp > entity.ttl;
   }
-  
+
   /**
-   * Convert Table Storage entity back to ConversationState
+   * Get days until expiry for an entity
    */
-  static convertEntityToConversationState(entity: ConversationStateEntity): ConversationState {
+  static getDaysUntilExpiry(entity: BaseEntity): number | null {
+    if (!entity.ttl) return null;
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const secondsUntilExpiry = entity.ttl - currentTimestamp;
+    return Math.max(0, Math.floor(secondsUntilExpiry / (24 * 60 * 60)));
+  }
+
+  /**
+   * Convert Azure Table entity to ConversationState
+   */
+  static convertEntityToConversationState(entity: ConversationStateEntity): any {
     return {
-      ...entity,
+      conversationId: entity.conversationId,
+      userId: entity.userId,
+      sessionId: entity.sessionId,
+      currentTopic: entity.currentTopic,
+      currentStage: entity.currentStage,
+      consentStatus: entity.consentStatus,
       userContactInfo: entity.userContactInfo ? JSON.parse(entity.userContactInfo) : undefined,
+      conversationStarted: entity.conversationStarted,
+      hasSeenOpeningStatement: entity.hasSeenOpeningStatement,
+      lastActivity: entity.lastActivity,
+      messageCount: entity.messageCount,
       topics: JSON.parse(entity.topics || '[]'),
       context: entity.context ? JSON.parse(entity.context) : undefined
-    } as ConversationState;
+    };
+  }
+
+  /**
+   * Convert ConversationState to Azure Table entity
+   */
+  static convertConversationStateToEntity(state: any): Partial<ConversationStateEntity> {
+    return {
+      conversationId: state.conversationId,
+      userId: state.userId,
+      sessionId: state.sessionId,
+      currentTopic: state.currentTopic,
+      currentStage: state.currentStage,
+      consentStatus: state.consentStatus,
+      userContactInfo: state.userContactInfo ? JSON.stringify(state.userContactInfo) : undefined,
+      conversationStarted: state.conversationStarted,
+      hasSeenOpeningStatement: state.hasSeenOpeningStatement,
+      lastActivity: state.lastActivity,
+      messageCount: state.messageCount,
+      topics: JSON.stringify(state.topics || []),
+      context: state.context ? JSON.stringify(state.context) : undefined,
+      escalationRequired: state.escalationRequired,
+      escalationId: state.escalationId,
+      escalatedToNurse: state.escalatedToNurse,
+      escalationTimestamp: state.escalationTimestamp,
+      satisfactionRating: state.satisfactionRating,
+      completionReason: state.completionReason,
+      crisisDetected: state.crisisDetected,
+      ttl: this.calculateTTLForDataType(DataRetentionType.CONVERSATION_DATA)
+    };
+  }
+
+  /**
+   * Generate a sortable row key for time-based entities
+   */
+  static getSortableRowKey(date?: Date): string {
+    const useDate = date || new Date();
+    const timestamp = useDate.getTime();
+    const random = Math.random().toString(36).substr(2, 9);
+    return `${timestamp}-${random}`;
+  }
+
+  /**
+   * Generate TTL for specific data retention type
+   */
+  static generateTTLForDataType(dataType: DataRetentionType): number {
+    return this.calculateTTLForDataType(dataType);
   }
 }
-
-/**
- * Export all schema types and utilities
- */
-export {
-  BaseEntity,
-  ConversationStateEntity,
-  PiFContentEntity,
-  SearchLogEntity,
-  AzureTableStorageConfig,
-  AzureTableStorageUtils
-};

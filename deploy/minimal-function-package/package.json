@@ -1,0 +1,17 @@
+{
+  "name": "askeve-data-retention-function",
+  "version": "1.0.0",
+  "description": "GDPR-compliant data retention system for Ask Eve Assist",
+  "main": "index.js",
+  "scripts": {
+    "start": "func start",
+    "build": "echo 'No build required'"
+  },
+  "dependencies": {
+    "@azure/data-tables": "^13.3.1",
+    "@azure/functions": "^4.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
