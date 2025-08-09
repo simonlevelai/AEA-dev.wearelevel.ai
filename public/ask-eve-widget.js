@@ -472,14 +472,20 @@
       }
     }
     
-    /* Smooth text appearance for better readability */
-    .ask-eve-text p {
-      animation: fadeIn 0.3s ease-in;
+    /* Smooth text appearance only for new streaming content */
+    .ask-eve-text.streaming-text p:last-of-type {
+      animation: fadeInOnce 0.2s ease-out;
     }
     
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
+    /* Only animate new content, not recreated content */
+    @keyframes fadeInOnce {
+      from { opacity: 0.7; }
+      to { opacity: 1; }
+    }
+    
+    /* Ensure stable text doesn't re-animate */
+    .ask-eve-text:not(.streaming-text) p {
+      animation: none;
     }
   `;
   
@@ -744,7 +750,13 @@
     
     const textDiv = document.createElement('div');
     textDiv.className = 'ask-eve-text streaming-text';
-    textDiv.innerHTML = '<span class="streaming-cursor">|</span>'; // Blinking cursor
+    textDiv.setAttribute('data-processed-length', '0'); // Track processed content
+    
+    // Create persistent cursor (won't be recreated)
+    const cursor = document.createElement('span');
+    cursor.className = 'streaming-cursor';
+    cursor.textContent = '|';
+    textDiv.appendChild(cursor);
     
     messageDiv.appendChild(avatar);
     messageDiv.appendChild(textDiv);
@@ -768,9 +780,36 @@
       textDiv.classList.add('ask-eve-crisis');
     }
     
-    // Convert markdown and add streaming cursor
-    const formattedText = parseMarkdown(text);
-    textDiv.innerHTML = formattedText + '<span class="streaming-cursor">|</span>';
+    // Get or create persistent cursor
+    let cursor = textDiv.querySelector('.streaming-cursor');
+    if (!cursor) {
+      cursor = document.createElement('span');
+      cursor.className = 'streaming-cursor';
+      cursor.textContent = '|';
+      textDiv.appendChild(cursor);
+    }
+    
+    // Use the legacy parseMarkdown approach but with smart DOM updates
+    // Clear previous content (except cursor) and render complete text
+    const children = Array.from(textDiv.children);
+    children.forEach(child => {
+      if (child !== cursor) {
+        child.remove();
+      }
+    });
+    
+    // Use the legacy parseMarkdown function and insert as innerHTML
+    // This handles markdown properly but may flicker - trade-off for functionality
+    const htmlContent = parseMarkdown(text);
+    if (htmlContent) {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = htmlContent;
+      
+      // Move all elements from temp div before cursor
+      Array.from(tempDiv.children).forEach(element => {
+        textDiv.insertBefore(element, cursor);
+      });
+    }
     
     // Scroll to bottom
     const messages = document.getElementById('ask-eve-messages');
@@ -786,8 +825,13 @@
     
     // Remove streaming cursor and finalize
     textDiv.classList.remove('streaming-text');
-    const formattedText = parseMarkdown(text);
-    textDiv.innerHTML = formattedText;
+    const cursor = textDiv.querySelector('.streaming-cursor');
+    if (cursor) {
+      cursor.remove();
+    }
+    
+    // Clean up tracking attributes
+    textDiv.removeAttribute('data-processed-length');
     
     // Log for analytics
     if (metadata) {
@@ -806,7 +850,90 @@
     }
   }
 
-  // Enhanced markdown parser for healthcare formatting
+  // Enhanced markdown parser that returns DOM elements (eliminates innerHTML flicker)
+  function parseMarkdownToElements(text) {
+    if (!text) return [];
+    
+    const elements = [];
+    const lines = text.split('\n');
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) {
+        // Empty line - add a line break
+        elements.push(document.createElement('br'));
+        continue;
+      }
+      
+      let element;
+      
+      // Bullet points: • -> list items
+      if (trimmedLine.startsWith('•')) {
+        element = document.createElement('li');
+        element.style.cssText = 'margin: 4px 0; list-style: none; position: relative; padding-left: 16px;';
+        
+        // Add bullet point styling
+        const bullet = document.createElement('span');
+        bullet.textContent = '•';
+        bullet.style.cssText = 'color: #d63384; font-weight: bold; position: absolute; left: 0;';
+        element.appendChild(bullet);
+        
+        const content = trimmedLine.substring(1).trim();
+        const textNode = createFormattedTextNode(content);
+        element.appendChild(textNode);
+      } else {
+        // Regular paragraph
+        element = document.createElement('p');
+        const textNode = createFormattedTextNode(trimmedLine);
+        element.appendChild(textNode);
+      }
+      
+      elements.push(element);
+    }
+    
+    return elements;
+  }
+  
+  // Create text node with inline markdown formatting
+  function createFormattedTextNode(text) {
+    const container = document.createElement('span');
+    
+    // Process text with markdown patterns
+    let processed = text;
+    
+    // Split by markdown patterns while preserving them
+    const parts = processed.split(/(\*\*.*?\*\*|\*.*?\*|🚨)/g);
+    
+    for (const part of parts) {
+      if (!part) continue;
+      
+      let element;
+      
+      if (part.startsWith('**') && part.endsWith('**')) {
+        // Bold text
+        element = document.createElement('strong');
+        element.textContent = part.slice(2, -2);
+      } else if (part.startsWith('*') && part.endsWith('*') && !part.startsWith('**')) {
+        // Italic text
+        element = document.createElement('em');
+        element.textContent = part.slice(1, -1);
+      } else if (part === '🚨') {
+        // Emergency indicator
+        element = document.createElement('span');
+        element.className = 'emergency-icon';
+        element.textContent = '🚨';
+      } else {
+        // Regular text
+        element = document.createTextNode(part);
+      }
+      
+      container.appendChild(element);
+    }
+    
+    return container;
+  }
+
+  // Legacy function for backward compatibility (used in non-streaming messages)
   function parseMarkdown(text) {
     if (!text) return '';
     

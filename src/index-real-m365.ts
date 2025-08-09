@@ -55,12 +55,15 @@ interface ConversationData {
   crisisDetected: boolean;
   lastMessageTime: number;
   escalationState?: EscalationState;
+  medicalResponseCount?: number; // Track how many medical responses given
+  lastMedicalResponseTime?: number; // When last medical info was provided
+  userSatisfactionSignals?: 'satisfied' | 'neutral' | 'unsatisfied'; // Track satisfaction
 }
 
 // Nurse escalation interfaces
 interface EscalationState {
   isActive: boolean;
-  step: 'none' | 'consent' | 'name' | 'contact_method' | 'contact_details' | 'confirmation' | 'completed';
+  step: 'none' | 'offer_pending' | 'consent' | 'name' | 'contact_method' | 'contact_details' | 'confirmation' | 'completed';
   triggerType?: string;
   scenario?: string;
   priority?: 'low' | 'medium' | 'high';
@@ -70,6 +73,7 @@ interface EscalationState {
   contactMethod?: 'phone' | 'email';
   contactDetails?: string;
   timeoutWarning?: boolean;
+  lastOfferTime?: number; // Track when support offer was made
 }
 
 interface EscalationTrigger {
@@ -129,20 +133,64 @@ class AskEveAssistBot extends ActivityHandler {
       uatCard: 'Card 11 - Emma diagnosed'
     },
     
-    // Direct nurse request patterns
+    // Direct nurse request patterns - ENHANCED for comprehensive detection
     {
-      pattern: /(speak to|talk to|contact) (a nurse|someone|human|person)/i,
+      pattern: /(speak to|talk to|contact|see|meet with)\s+(a\s+)?(nurse|someone|human|person|professional|specialist|expert)/i,
       scenario: 'direct_request',
-      priority: 'medium', 
+      priority: 'high', 
       description: 'Direct request for human nurse support',
       uatCard: 'Multiple cards testing nurse escalation'
     },
     {
-      pattern: /(need support|want to speak|can I talk)/i,
+      pattern: /(can|may|could)\s+(i|we)\s+(speak to|talk to|see|contact)\s+(a\s+)?(nurse|someone|human|professional)/i,
+      scenario: 'direct_request',
+      priority: 'high',
+      description: 'Polite direct request for nurse support', 
+      uatCard: 'Production issue - "Can I speak to a nurse please?"'
+    },
+    {
+      pattern: /(i want to|i need to|i would like to)\s+(speak to|talk to|see|contact)\s+(a\s+)?(nurse|someone|human)/i,
+      scenario: 'direct_request',
+      priority: 'high',
+      description: 'Direct statement of need for nurse contact',
+      uatCard: 'Production issue - direct statements'
+    },
+    {
+      pattern: /(need support|want to speak to someone|can I talk to someone)/i,
       scenario: 'support_request',
       priority: 'medium',
       description: 'Indirect request for additional support',
       uatCard: 'Cards 1, 4, 15'
+    },
+    
+    // CRITICAL: Escalation arrangement requests (missed in UAT scenario)
+    {
+      pattern: /(can you|please|help me)\s+(arrange|set.{1,10}up|connect|organize)/i,
+      scenario: 'direct_request',
+      priority: 'high',
+      description: 'Direct request to arrange nurse callback',
+      uatCard: 'Production issue - "Can you arrange it for me?"'
+    },
+    {
+      pattern: /arrange.{1,20}(me|that|it|for me)/i,
+      scenario: 'direct_request', 
+      priority: 'high',
+      description: 'Request to arrange nurse contact',
+      uatCard: 'Production issue - arrangement requests'
+    },
+    {
+      pattern: /(set|sort).{1,10}(that|it).{1,10}(up|for me)/i,
+      scenario: 'direct_request',
+      priority: 'high', 
+      description: 'Request to set up nurse callback',
+      uatCard: 'Production issue - setup requests'
+    },
+    {
+      pattern: /(connect me|put me in touch|get me in touch)/i,
+      scenario: 'direct_request',
+      priority: 'high',
+      description: 'Request to connect with nurse',
+      uatCard: 'Production issue - connection requests' 
     },
     
     // Healthcare navigation issues (UAT Cards 14, 15)
@@ -203,6 +251,89 @@ class AskEveAssistBot extends ActivityHandler {
       priority: 'high',
       description: 'Postmenopausal bleeding requiring urgent medical assessment',
       uatCard: 'Card 6 - Postmenopausal bleeding'
+    },
+    
+    // UAT SAFETY NET 2: Expanded catch-all patterns for common variations
+    // These catch alternative phrasings that UAT testers might use
+    
+    // Alternative human-seeking language
+    {
+      pattern: /(real person|actual person|human help|someone real|actual staff)/i,
+      scenario: 'direct_request',
+      priority: 'high',
+      description: 'Request for real human assistance',
+      uatCard: 'UAT catch-all patterns'
+    },
+    {
+      pattern: /(talk to staff|speak to staff|contact staff|staff member)/i,
+      scenario: 'direct_request',
+      priority: 'high',
+      description: 'Request to speak with staff',
+      uatCard: 'UAT catch-all patterns'
+    },
+    
+    // AI/Bot frustration expressions
+    {
+      pattern: /(this bot|this (isn't|won't|can't)|not working for me|getting frustrated|bot (can't|won't) help)/i,
+      scenario: 'ai_frustration',
+      priority: 'medium',
+      description: 'Frustration with AI assistance, may need human support',
+      uatCard: 'UAT catch-all patterns'
+    },
+    {
+      pattern: /(need someone who understands|someone who gets it|this isn't helping)/i,
+      scenario: 'support_request',
+      priority: 'medium',
+      description: 'Seeking more personalized understanding',
+      uatCard: 'UAT catch-all patterns'
+    },
+    
+    // General help-seeking with healthcare context
+    {
+      pattern: /(can't help me|not helpful|need more help|this doesn't help)/i,
+      scenario: 'support_request',
+      priority: 'medium',
+      description: 'Indicating current help is insufficient',
+      uatCard: 'UAT catch-all patterns'
+    },
+    {
+      pattern: /(someone who can help|need better help|more support|additional help)/i,
+      scenario: 'support_request',
+      priority: 'medium',
+      description: 'Seeking enhanced support',
+      uatCard: 'UAT catch-all patterns'
+    },
+    
+    // Connection and callback requests
+    {
+      pattern: /(connect me|put me in touch|get in touch with|reach out to)/i,
+      scenario: 'direct_request',
+      priority: 'high',
+      description: 'Request for connection with human support',
+      uatCard: 'UAT catch-all patterns'
+    },
+    {
+      pattern: /(call me back|call back|phone me|ring me)/i,
+      scenario: 'direct_request',
+      priority: 'high',
+      description: 'Request for phone contact',
+      uatCard: 'UAT catch-all patterns'
+    },
+    
+    // Professional support requests
+    {
+      pattern: /(healthcare professional|medical professional|trained person|qualified person)/i,
+      scenario: 'direct_request',
+      priority: 'high',
+      description: 'Request for professional healthcare support',
+      uatCard: 'UAT catch-all patterns'
+    },
+    {
+      pattern: /(counsellor|counselor|therapist|advisor|specialist support)/i,
+      scenario: 'direct_request',
+      priority: 'high',
+      description: 'Request for specialized professional support',
+      uatCard: 'UAT catch-all patterns'
     }
   ];
   
@@ -426,7 +557,10 @@ Be empathetic, supportive, and always recommend consulting a GP for medical conc
         conversationHistory: [],
         crisisDetected: false,
         lastMessageTime: Date.now(),
-        escalationState: { isActive: false, step: 'none' }
+        escalationState: { isActive: false, step: 'none' },
+        medicalResponseCount: 0,
+        lastMedicalResponseTime: 0,
+        userSatisfactionSignals: 'neutral'
       });
 
       const userProfileAccessor = this.userState.createProperty<UserProfile>('userProfile');
@@ -509,7 +643,43 @@ Be empathetic, supportive, and always recommend consulting a GP for medical conc
         );
         
         conversationData.escalationState = escalationResult.newState;
-        await context.sendActivity(escalationResult.response);
+        
+        // CRITICAL: Check if user asked new health question during pending offer
+        if (escalationResult.response === "OF_COURSE_NEW_QUESTION") {
+          this.logger.info('🔄 NEW HEALTH QUESTION DURING PENDING OFFER - Routing to normal healthcare flow', {
+            userId,
+            originalMessage: messageText
+          });
+          
+          // Process as normal healthcare question
+          const healthcareResponse = await this.generateHealthcareResponseWithRAG(messageText);
+          await context.sendActivity(healthcareResponse);
+          
+          // Still check for new escalation triggers after providing healthcare info
+          const newEscalationTrigger = await this.detectNurseEscalationTrigger(messageText, conversationData.conversationHistory, conversationData);
+          if (newEscalationTrigger) {
+            if (newEscalationTrigger.priority === 'high') {
+              const escalationFlow = this.startNurseEscalationFlow(newEscalationTrigger);
+              conversationData.escalationState = escalationFlow.escalationState;
+              await context.sendActivity(escalationFlow.response);
+            } else {
+              const supportOffer = this.generateSupportSuggestion(newEscalationTrigger);
+              await context.sendActivity(supportOffer);
+              
+              conversationData.escalationState = {
+                isActive: true,
+                step: 'offer_pending',
+                scenario: newEscalationTrigger.scenario,
+                priority: newEscalationTrigger.priority,
+                triggerType: newEscalationTrigger.description,
+                startTime: Date.now(),
+                lastOfferTime: Date.now()
+              };
+            }
+          }
+        } else {
+          await context.sendActivity(escalationResult.response);
+        }
         
       } else {
         this.logger.info('🩺 NORMAL CONVERSATION FLOW - Medical info first, then escalation check', {
@@ -547,9 +717,22 @@ Be empathetic, supportive, and always recommend consulting a GP for medical conc
           await context.sendActivity(healthcareResponse);
           this.logger.info('📤 Healthcare response sent to user', { userId });
           
+          // UAT SAFETY NET 4: Track medical response and update conversation state
+          conversationData.medicalResponseCount = (conversationData.medicalResponseCount || 0) + 1;
+          conversationData.lastMedicalResponseTime = Date.now();
+          
+          // Detect user satisfaction signals from their original message
+          conversationData.userSatisfactionSignals = this.detectUserSatisfactionSignal(messageText);
+          
+          this.logger.info('📊 Conversation tracking updated', {
+            medicalResponses: conversationData.medicalResponseCount,
+            satisfactionSignal: conversationData.userSatisfactionSignals,
+            userId
+          });
+          
           // STEP 2D: Then check if user might benefit from additional nurse support
           this.logger.info('🔍 STEP 2D: Checking for escalation triggers', { userId });
-          const escalationTrigger = this.detectNurseEscalationTrigger(messageText, conversationData.conversationHistory);
+          const escalationTrigger = await this.detectNurseEscalationTrigger(messageText, conversationData.conversationHistory, conversationData);
           
           if (escalationTrigger) {
             this.logger.info('🚨 ESCALATION TRIGGER DETECTED', {
@@ -586,6 +769,23 @@ Be empathetic, supportive, and always recommend consulting a GP for medical conc
               // For medium/low priority, suggest support as follow-up
               const supportOffer = this.generateSupportSuggestion(escalationTrigger);
               await context.sendActivity(supportOffer);
+              
+              // CRITICAL: Track that we've made a support offer and are awaiting response
+              conversationData.escalationState = {
+                isActive: true,
+                step: 'offer_pending',
+                scenario: escalationTrigger.scenario,
+                priority: escalationTrigger.priority,
+                triggerType: escalationTrigger.description,
+                startTime: Date.now(),
+                lastOfferTime: Date.now()
+              };
+              
+              this.logger.info('🕐 SUPPORT OFFER PENDING - Tracking user response', {
+                scenario: escalationTrigger.scenario,
+                userId,
+                offerTime: new Date().toISOString()
+              });
             }
           } else {
             this.logger.info('✅ No escalation triggers detected - conversation complete', { userId });
@@ -675,7 +875,7 @@ Be empathetic, supportive, and always recommend consulting a GP for medical conc
       await this.streamResponse(healthcareResponse, streamingContext, 300); // Initial delay for natural feel
 
       // STEP 3: Check for nurse escalation triggers
-      const escalationTrigger = this.detectNurseEscalationTrigger(message, []);
+      const escalationTrigger = await this.detectNurseEscalationTrigger(message, [], null);
       
       if (escalationTrigger) {
         this.logger.info('🩺 Escalation trigger detected, streaming support offer', {
@@ -1254,7 +1454,7 @@ What else would you like to know? I'm here to support you.
   /**
    * Detect nurse escalation triggers based on UAT scenario analysis
    */
-  private detectNurseEscalationTrigger(message: string, conversationHistory: string[]): EscalationTrigger | null {
+  private async detectNurseEscalationTrigger(message: string, conversationHistory: string[], conversationData?: any): Promise<EscalationTrigger | null> {
     const lowerMessage = message.toLowerCase().trim();
     
     // Check each escalation pattern
@@ -1276,6 +1476,352 @@ What else would you like to know? I'm here to support you.
           priority: 'medium',
           description: 'Ongoing concern after medical information provided',
           uatCard: 'Cards 1, 4, 8'
+        };
+      }
+    }
+    
+    // UAT SAFETY NET 3: Typo-tolerant matching for key healthcare terms
+    const typoTolerantTrigger = this.hasTypoTolerantEscalationIntent(message);
+    if (typoTolerantTrigger) {
+      return typoTolerantTrigger;
+    }
+    
+    // UAT SAFETY NET 4: Conversation-level escalation tracking
+    // Lower threshold based on conversation history and user satisfaction
+    if (conversationData && this.shouldLowerEscalationThreshold(conversationData)) {
+      const conversationBasedTrigger = this.detectConversationBasedEscalation(message, conversationData);
+      if (conversationBasedTrigger) {
+        this.logger.info(`[Conversation-Level] Escalation triggered due to conversation history`, {
+          medicalResponses: conversationData.medicalResponseCount,
+          satisfaction: conversationData.userSatisfactionSignals,
+          trigger: conversationBasedTrigger.scenario
+        });
+        return conversationBasedTrigger;
+      }
+    }
+    
+    // UAT SAFETY NET 1: AI-powered fallback intent classifier
+    // If no regex patterns matched, use OpenAI to detect human-seeking intent
+    const aiEscalationTrigger = await this.detectEscalationWithAI(message);
+    if (aiEscalationTrigger) {
+      this.logger.info(`[AI-Fallback] Escalation intent detected: ${aiEscalationTrigger.scenario}`, {
+        message: message.substring(0, 100),
+        confidence: 'ai-detected'
+      });
+      return aiEscalationTrigger;
+    }
+    
+    return null;
+  }
+
+  /**
+   * UAT Safety Net: AI-powered fallback intent classifier
+   * Detects human-seeking intent that regex patterns might miss
+   */
+  private async detectEscalationWithAI(message: string): Promise<EscalationTrigger | null> {
+    try {
+      // Only use AI fallback for messages that seem like they could be human-seeking
+      // This prevents unnecessary API calls for clearly non-escalation messages
+      const hasHumanSeekingIndicators = this.hasHumanSeekingIndicators(message);
+      if (!hasHumanSeekingIndicators) {
+        return null;
+      }
+
+      const aiPrompt = `You are an AI assistant analyzing healthcare conversations. Your job is to identify if someone wants to speak with a human healthcare professional.
+
+Analyze this message and determine if the person is:
+1. Asking to speak with a nurse, doctor, or healthcare professional
+2. Expressing frustration with AI/bot help and wanting human support  
+3. Requesting to be connected with staff or real people
+4. Asking someone to arrange or set up human contact
+
+Message: "${message}"
+
+Respond with ONLY a JSON object:
+{
+  "isEscalation": boolean,
+  "confidence": number (0-100),
+  "scenario": "direct_request" | "support_request" | "ai_frustration",
+  "reasoning": "brief explanation"
+}`;
+
+      const response = await fetch(`${process.env.AZURE_OPENAI_ENDPOINT}openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version=2024-06-01`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': process.env.AZURE_OPENAI_API_KEY!
+        },
+        body: JSON.stringify({
+          messages: [
+            { role: 'user', content: aiPrompt }
+          ],
+          max_tokens: 150,
+          temperature: 0.1, // Low temperature for consistent classification
+          response_format: { type: 'json_object' }
+        })
+      });
+
+      if (!response.ok) {
+        this.logger.warn('AI intent classification failed', { status: response.status });
+        return null;
+      }
+
+      const data = await response.json() as any;
+      const aiResult = JSON.parse(data.choices[0].message.content);
+      
+      // Only trigger escalation if AI is confident (>70%) that it's human-seeking
+      if (aiResult.isEscalation && aiResult.confidence > 70) {
+        return {
+          pattern: /./,
+          scenario: aiResult.scenario || 'ai_detected_request',
+          priority: aiResult.confidence > 90 ? 'high' : 'medium',
+          description: `AI-detected escalation: ${aiResult.reasoning}`,
+          uatCard: 'AI-Fallback-Detection'
+        };
+      }
+
+      return null;
+    } catch (error: any) {
+      this.logger.warn('AI intent classification error', { error: error?.message || 'Unknown error' });
+      return null; // Fail gracefully - don't break escalation if AI fails
+    }
+  }
+
+  /**
+   * Quick check for human-seeking indicators to avoid unnecessary AI calls
+   */
+  private hasHumanSeekingIndicators(message: string): boolean {
+    const indicators = [
+      /human|person|staff|nurse|doctor|real|actual|someone/i,
+      /talk|speak|contact|help|connect|arrange/i,
+      /bot|ai|this (isn't|won't|can't)|not working|frustrated/i,
+      /need|want|request|please|can you/i
+    ];
+    
+    return indicators.some(pattern => pattern.test(message));
+  }
+
+  /**
+   * UAT Safety Net 3: Typo-tolerant matching for key healthcare terms
+   * Handles common typos that might occur during UAT testing
+   */
+  private hasTypoTolerantEscalationIntent(message: string): EscalationTrigger | null {
+    const normalizedMessage = this.normalizeTypos(message.toLowerCase());
+    
+    // Key escalation patterns with normalized text
+    const typoTolerantPatterns: EscalationTrigger[] = [
+      {
+        pattern: /can i (speak|talk) to (a )?nurse/i,
+        scenario: 'direct_request',
+        priority: 'high',
+        description: 'Typo-tolerant direct nurse request',
+        uatCard: 'Typo-tolerant matching'
+      },
+      {
+        pattern: /(speak|talk) to (someone|a person|human)/i,
+        scenario: 'direct_request',
+        priority: 'high',
+        description: 'Typo-tolerant human request',
+        uatCard: 'Typo-tolerant matching'
+      },
+      {
+        pattern: /(help|connect) me (with|to) (a )?(nurse|person|human)/i,
+        scenario: 'direct_request',
+        priority: 'high',
+        description: 'Typo-tolerant connection request',
+        uatCard: 'Typo-tolerant matching'
+      },
+      {
+        pattern: /arrange (a )?(call|callback|nurse)/i,
+        scenario: 'direct_request',
+        priority: 'high',
+        description: 'Typo-tolerant arrangement request',
+        uatCard: 'Typo-tolerant matching'
+      }
+    ];
+    
+    // Check if any pattern matches the typo-normalized message
+    for (const trigger of typoTolerantPatterns) {
+      if (trigger.pattern.test(normalizedMessage)) {
+        this.logger.info(`[Typo-Tolerant] Escalation detected: ${trigger.scenario}`, {
+          original: message.substring(0, 50),
+          normalized: normalizedMessage.substring(0, 50)
+        });
+        return trigger;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Normalize common typos in healthcare terms
+   */
+  private normalizeTypos(text: string): string {
+    const typoCorrections: Record<string, string> = {
+      // Nurse variations
+      'nures': 'nurse',
+      'nurce': 'nurse',
+      'nurs': 'nurse',
+      'nursse': 'nurse',
+      'nuerse': 'nurse',
+      
+      // Speak variations  
+      'speek': 'speak',
+      'spek': 'speak',
+      'speac': 'speak',
+      'speak': 'speak',
+      
+      // Talk variations
+      'tak': 'talk',
+      'tlak': 'talk',
+      'tallk': 'talk',
+      
+      // Help variations
+      'halp': 'help',
+      'hep': 'help',
+      'hepl': 'help',
+      
+      // Arrange variations
+      'arange': 'arrange',
+      'arrage': 'arrange',
+      'aragne': 'arrange',
+      
+      // Connect variations
+      'conect': 'connect',
+      'conectt': 'connect',
+      'connet': 'connect',
+      
+      // Common word variations
+      'realy': 'really',
+      'actualy': 'actually',
+      'somone': 'someone',
+      'som1': 'someone',
+      'sum1': 'someone',
+      'ppl': 'people',
+      'u': 'you',
+      'ur': 'your',
+      'plz': 'please',
+      'pls': 'please',
+      'thnks': 'thanks',
+      'thx': 'thanks'
+    };
+    
+    let normalized = text;
+    
+    // Apply typo corrections
+    for (const [typo, correction] of Object.entries(typoCorrections)) {
+      const typoRegex = new RegExp(`\\b${typo}\\b`, 'gi');
+      normalized = normalized.replace(typoRegex, correction);
+    }
+    
+    return normalized;
+  }
+
+  /**
+   * UAT Safety Net 4: Detect user satisfaction signals for conversation tracking
+   */
+  private detectUserSatisfactionSignal(message: string): 'satisfied' | 'neutral' | 'unsatisfied' {
+    const lowerMessage = message.toLowerCase();
+    
+    // Satisfaction indicators
+    const satisfiedPatterns = [
+      /thank you|thanks|that helps|helpful|good to know|great|perfect/i,
+      /i understand|that makes sense|clear now|got it/i,
+      /appreciate|grateful/i
+    ];
+    
+    // Dissatisfaction indicators
+    const unsatisfiedPatterns = [
+      /still (worried|scared|confused)|doesn't help|not helpful|more questions/i,
+      /but what about|what if|still don't understand|that's not|but i/i,
+      /i'm still|still concerned|not sure|confused|lost/i,
+      /doesn't make sense|not clear|don't get it/i,
+      /(more|other|additional) (help|support|information)/i
+    ];
+    
+    if (satisfiedPatterns.some(pattern => pattern.test(lowerMessage))) {
+      return 'satisfied';
+    }
+    
+    if (unsatisfiedPatterns.some(pattern => pattern.test(lowerMessage))) {
+      return 'unsatisfied';
+    }
+    
+    return 'neutral';
+  }
+
+  /**
+   * UAT Safety Net 4: Enhanced escalation detection with conversation-level tracking
+   */
+  private shouldLowerEscalationThreshold(conversationData: any): boolean {
+    // Lower threshold if user has had multiple medical responses but still seems unsatisfied
+    if ((conversationData.medicalResponseCount || 0) >= 2 && 
+        conversationData.userSatisfactionSignals === 'unsatisfied') {
+      return true;
+    }
+    
+    // Lower threshold if user has had 3+ medical exchanges (may need more personalized support)
+    if ((conversationData.medicalResponseCount || 0) >= 3) {
+      return true;
+    }
+    
+    // Lower threshold if last medical response was recent and user is back with more questions
+    const timeSinceLastMedical = Date.now() - (conversationData.lastMedicalResponseTime || 0);
+    const fiveMinutes = 5 * 60 * 1000;
+    if (timeSinceLastMedical < fiveMinutes && (conversationData.medicalResponseCount || 0) >= 1) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * UAT Safety Net 4: Detect escalation based on conversation patterns
+   */
+  private detectConversationBasedEscalation(message: string, conversationData: any): EscalationTrigger | null {
+    const lowerMessage = message.toLowerCase();
+    
+    // Low-threshold patterns that trigger when conversation threshold is lowered
+    const lowThresholdPatterns = [
+      // Follow-up questions after medical responses
+      {
+        pattern: /(but|what about|however|still|though)/i,
+        scenario: 'follow_up_concern',
+        priority: 'medium' as const,
+        description: 'Follow-up concern after medical information'
+      },
+      // Continued worry patterns
+      {
+        pattern: /(still (worried|concerned)|more questions|not sure|confused)/i,
+        scenario: 'persistent_concern',
+        priority: 'medium' as const,
+        description: 'Persistent concern despite medical information'
+      },
+      // General question patterns (when user has had multiple medical exchanges)
+      {
+        pattern: /(what|how|when|where|why|should|could|would)/i,
+        scenario: 'repeated_information_seeking',
+        priority: 'medium' as const,
+        description: 'Multiple information requests may indicate need for personalized support'
+      },
+      // Any healthcare concern when user seems unsatisfied
+      {
+        pattern: /(pain|bleeding|lump|discharge|test|result|cancer|symptom)/i,
+        scenario: 'unsatisfied_medical_inquiry',
+        priority: 'medium' as const,
+        description: 'Healthcare concern from unsatisfied user'
+      }
+    ];
+    
+    for (const pattern of lowThresholdPatterns) {
+      if (pattern.pattern.test(lowerMessage)) {
+        return {
+          pattern: pattern.pattern,
+          scenario: pattern.scenario,
+          priority: pattern.priority,
+          description: `Conversation-level: ${pattern.description}`,
+          uatCard: 'Conversation-level tracking'
         };
       }
     }
@@ -1344,23 +1890,31 @@ What else would you like to know? I'm here to support you.
    * Note: This is a simplified approach - in production, you'd track conversation state more precisely
    */
   private isPreviousSupportOfferResponse(message: string, conversationHistory: string[]): boolean {
+    // ENABLED: Critical healthcare escalation response detection
     const lowerMessage = message.toLowerCase().trim();
     
-    // Only match very clear positive responses to avoid false matches
-    const clearPositiveResponses = [
-      'yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'yes please',
-      'that would be helpful', 'that would help', 'please arrange', 
-      'please set that up', 'connect me', 'arrange that', 'i would like that'
+    // Check if this is a positive response to escalation offer
+    if (this.isPositiveResponse(message)) {
+      this.logger.info('🚨 POSITIVE ESCALATION RESPONSE DETECTED', { message });
+      return true;
+    }
+    
+    // Explicit arrangement/escalation requests (even without prior offer)
+    const escalationRequestPatterns = [
+      /(can you|please|help me)\s+(arrange|set.{1,10}up|connect|organize)/i,
+      /arrange.{1,20}(me|that|it)/i,
+      /(set|sort).{1,10}(that|it).{1,10}(up|for me)/i,
+      /connect me/i,
+      /help me (arrange|set up|organize|get in touch)/i,
+      /make.{1,10}(arrangement|appointment|connection)/i
     ];
     
-    // For now, disable this feature until we can implement proper conversation state tracking
-    // TODO: Implement proper conversation state to track when support offers are made
-    return false;
+    if (escalationRequestPatterns.some(pattern => pattern.test(message))) {
+      this.logger.info('🚨 ESCALATION ARRANGEMENT REQUEST DETECTED', { message });
+      return true;  
+    }
     
-    // Future implementation would:
-    // 1. Track when support offers are sent in conversation state
-    // 2. Check if current message is a positive response
-    // 3. Only trigger if previous bot action was a support offer
+    return false;
   }
 
   /**
@@ -1416,6 +1970,9 @@ What else would you like to know? I'm here to support you.
     }
     
     switch (currentState.step) {
+      case 'offer_pending':
+        return this.processOfferPendingStep(message, currentState);
+      
       case 'consent':
         return this.processConsentStep(message, currentState);
       
@@ -1709,9 +2266,133 @@ For urgent medical concerns, please contact your GP or call NHS 111.`,
     return cancelPatterns.test(message.trim());
   }
   
+  /**
+   * CRITICAL: Process response when support offer is pending
+   * This handles the crucial case where user responds to a support suggestion
+   */
+  private processOfferPendingStep(message: string, currentState: EscalationState): { response: string; newState: EscalationState } {
+    const lowerMessage = message.toLowerCase().trim();
+    
+    // Check if user accepts the support offer
+    if (this.isPositiveResponse(message)) {
+      this.logger.info('✅ USER ACCEPTED PENDING SUPPORT OFFER', { 
+        message: message,
+        scenario: currentState.scenario,
+        timeSinceOffer: currentState.lastOfferTime ? Date.now() - currentState.lastOfferTime : 'unknown'
+      });
+      
+      // User accepted - start full GDPR consent process
+      const consentMessage = `To connect you with a nurse, I need to share some information about our conversation and collect your contact details.
+
+**Here's how your information will be used:**
+• Your conversation summary will be shared with an Ask Eve nurse
+• Your contact details will be stored securely and deleted after 30 days  
+• We'll only use your details to arrange nurse support - never for marketing
+• You can ask us to delete your information at any time
+
+**Would you like to continue?** (Type 'yes' to continue or 'no' to cancel)`;
+      
+      return {
+        response: consentMessage,
+        newState: {
+          ...currentState,
+          step: 'consent',
+          consentGiven: false,
+          startTime: Date.now() // Reset timer for consent flow
+        }
+      };
+    }
+    
+    // Check if user declines
+    if (this.isNegativeResponse(message)) {
+      this.logger.info('👍 USER DECLINED SUPPORT OFFER - Continuing normal conversation', {
+        message: message,
+        scenario: currentState.scenario
+      });
+      
+      return {
+        response: "No problem at all! I'm here if you need any health information, and you can ask to speak with a nurse at any time.",
+        newState: {
+          isActive: false,
+          step: 'none'
+        }
+      };
+    }
+    
+    // Check if user is asking a new health question (not responding to offer)
+    // This is important - don't force escalation if they have a new medical question
+    if (this.isNewHealthQuestion(message)) {
+      this.logger.info('🔄 USER ASKED NEW HEALTH QUESTION - Treating as new conversation', {
+        message: message,
+        previousScenario: currentState.scenario
+      });
+      
+      // Reset escalation state and let normal flow handle the new question
+      return {
+        response: "OF_COURSE_NEW_QUESTION", // Special flag to indicate new question flow
+        newState: {
+          isActive: false,
+          step: 'none'
+        }
+      };
+    }
+    
+    // Ambiguous response - clarify what they want
+    this.logger.info('❓ AMBIGUOUS RESPONSE TO SUPPORT OFFER - Asking for clarification', {
+      message: message,
+      scenario: currentState.scenario,
+      timeSinceOffer: currentState.lastOfferTime ? Date.now() - currentState.lastOfferTime : 'unknown'
+    });
+    
+    return {
+      response: "I want to make sure I understand - would you like me to arrange for one of our Ask Eve nurses to contact you for additional support? You can say 'yes' or 'no', or ask me another health question if you prefer.",
+      newState: currentState // Keep pending state
+    };
+  }
+  
+  /**
+   * Check if message is a new health question rather than response to escalation offer
+   */
+  private isNewHealthQuestion(message: string): boolean {
+    const healthQuestionPatterns = [
+      /what (is|are|does|can|should)/i,
+      /how (do|does|can|should|long|often)/i,
+      /(tell me about|explain|information about)/i,
+      /(symptoms?|treatment|diagnosis|test|results?)/i,
+      /(worried about|concerned about|question about)/i,
+      /^(i|my|the).*(pain|bleeding|discharge|lump|cancer|smear)/i
+    ];
+    
+    return healthQuestionPatterns.some(pattern => pattern.test(message));
+  }
+
   private isPositiveResponse(message: string): boolean {
-    const positivePatterns = /^(yes|yeah|yep|ok|okay|sure|y)$/i;
-    return positivePatterns.test(message.trim());
+    const lowerMessage = message.toLowerCase().trim();
+    
+    // Comprehensive positive response patterns (no exact match anchors)
+    const positivePatterns = [
+      // Single word responses
+      /^(yes|yeah|yep|ok|okay|sure|y)\s*$/i,
+      
+      // Polite responses  
+      /^(yes|yeah|sure|ok)\s+(please|thanks?|that would be great)/i,
+      
+      // Arrangement requests
+      /(can you|please)\s+(arrange|set that up|help me arrange|connect me)/i,
+      
+      // Affirmative with arrangement
+      /(yes|sure|ok).*(arrange|set.{1,10}up|connect|help)/i,
+      
+      // Natural positive responses
+      /that would (be )?(helpful|great|good|perfect)/i,
+      /i would like that/i,
+      /that sounds (good|great|helpful)/i,
+      /please do/i,
+      /go ahead/i,
+      /i'd like that/i
+    ];
+    
+    return positivePatterns.some(pattern => pattern.test(lowerMessage));
   }
   
   private isNegativeResponse(message: string): boolean {

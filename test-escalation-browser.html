@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 Escalation Test Matrix - Ask Eve</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: white;
+            border-radius: 8px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2rem;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+        }
+        .controls {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .controls input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            min-width: 300px;
+        }
+        .controls button {
+            background: #d63384;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .controls button:hover {
+            background: #c12d5f;
+        }
+        .controls button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #6b7280;
+        }
+        .stat-card.passed { border-left-color: #10b981; }
+        .stat-card.failed { border-left-color: #ef4444; }
+        .stat-card.critical { border-left-color: #dc2626; background: #fef2f2; }
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        .stat-card p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+        .test-categories {
+            margin-top: 30px;
+        }
+        .test-category {
+            margin-bottom: 30px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .category-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .test-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .test-item:last-child {
+            border-bottom: none;
+        }
+        .test-status {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        .test-status.pending {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        .test-status.running {
+            background: #fbbf24;
+            color: white;
+            animation: pulse 2s infinite;
+        }
+        .test-status.pass {
+            background: #10b981;
+            color: white;
+        }
+        .test-status.fail {
+            background: #ef4444;
+            color: white;
+        }
+        .test-status.critical-fail {
+            background: #dc2626;
+            color: white;
+            box-shadow: 0 0 0 3px #fecaca;
+        }
+        .test-details {
+            flex: 1;
+        }
+        .test-message {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 5px;
+        }
+        .test-description {
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+        .test-result {
+            font-size: 0.8rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 5px;
+        }
+        .test-result.pass {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .test-result.fail {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .priority-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .priority-critical {
+            background: #fecaca;
+            color: #991b1b;
+        }
+        .priority-high {
+            background: #fed7aa;
+            color: #9a3412;
+        }
+        .priority-medium {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #059669);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 Healthcare Escalation Test Matrix</h1>
+            <p>Critical validation of nurse escalation patterns that failed in production</p>
+        </div>
+        
+        <div class="controls">
+            <input type="text" id="api-url" placeholder="API URL (e.g., http://localhost:3002 or production URL)" 
+                   value="http://localhost:3002">
+            <button onclick="runAllTests()" id="run-tests-btn">🚀 Run All Tests</button>
+            <button onclick="clearResults()" id="clear-btn">🧹 Clear Results</button>
+        </div>
+        
+        <div class="progress-bar" id="progress-bar" style="display: none;">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card passed">
+                <h3 id="passed-count">0</h3>
+                <p>Tests Passed</p>
+            </div>
+            <div class="stat-card failed">
+                <h3 id="failed-count">0</h3>
+                <p>Tests Failed</p>
+            </div>
+            <div class="stat-card critical">
+                <h3 id="critical-count">0</h3>
+                <p>Critical Failures</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="success-rate">0%</h3>
+                <p>Success Rate</p>
+            </div>
+        </div>
+        
+        <div class="test-categories" id="test-categories">
+            <!-- Test categories will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <script>
+        // ===== TEST CASES (Same as Node.js version) =====
+        const TEST_CASES = [
+            {
+                category: '🎯 DIRECT NURSE REQUESTS (Production Failures)',
+                tests: [
+                    {
+                        id: 'direct-1',
+                        message: "Can I speak to a nurse please?",
+                        expectedFlow: 'direct_escalation',
+                        priority: 'CRITICAL',
+                        description: 'Production failure case - direct nurse request with politeness'
+                    },
+                    {
+                        id: 'direct-2',
+                        message: "I want to speak to a nurse",
+                        expectedFlow: 'direct_escalation',
+                        priority: 'HIGH',
+                        description: 'Direct statement of nurse need'
+                    },
+                    {
+                        id: 'direct-3',
+                        message: "Can you connect me with someone?",
+                        expectedFlow: 'direct_escalation',
+                        priority: 'HIGH',
+                        description: 'Request for human connection'
+                    }
+                ]
+            },
+            {
+                category: '📋 ESCALATION ARRANGEMENT REQUESTS (Production Failures)',
+                tests: [
+                    {
+                        id: 'arrange-1',
+                        message: "Can you arrange it for me?",
+                        expectedFlow: 'arrangement_request',
+                        priority: 'CRITICAL',
+                        description: 'Production failure case - arrangement request'
+                    },
+                    {
+                        id: 'arrange-2',
+                        message: "Please set that up",
+                        expectedFlow: 'arrangement_request',
+                        priority: 'HIGH',
+                        description: 'Arrangement setup request'
+                    },
+                    {
+                        id: 'arrange-3',
+                        message: "Help me arrange that",
+                        expectedFlow: 'arrangement_request',
+                        priority: 'HIGH',
+                        description: 'Help with arrangement'
+                    }
+                ]
+            },
+            {
+                category: '✅ POSITIVE RESPONSES TO OFFERS (Production Failures)',
+                tests: [
+                    {
+                        id: 'positive-1',
+                        setup: "Would you like to speak with one of our Ask Eve nurses?",
+                        message: "Yes please",
+                        expectedFlow: 'offer_acceptance',
+                        priority: 'CRITICAL',
+                        description: 'Production failure case - polite positive response'
+                    },
+                    {
+                        id: 'positive-2',
+                        setup: "Would you like me to arrange for one to contact you?",
+                        message: "Sure please",
+                        expectedFlow: 'offer_acceptance',
+                        priority: 'CRITICAL',
+                        description: 'Alternative polite positive response'
+                    },
+                    {
+                        id: 'positive-3',
+                        setup: "Our nurses can provide additional support. Interested?",
+                        message: "That would be great",
+                        expectedFlow: 'offer_acceptance',
+                        priority: 'CRITICAL',
+                        description: 'Natural positive response'
+                    }
+                ]
+            },
+            {
+                category: '🔄 CONTEXT TRACKING SCENARIOS',
+                tests: [
+                    {
+                        id: 'context-1',
+                        setup: "Our nurses can help with that. Would you like to speak with one?",
+                        message: "What about HPV testing?",
+                        expectedFlow: 'new_health_question',
+                        priority: 'HIGH',
+                        description: 'New health question during pending offer should be answered first'
+                    },
+                    {
+                        id: 'context-2',
+                        setup: "Would you like nurse support?",
+                        message: "Maybe later",
+                        expectedFlow: 'offer_declined',
+                        priority: 'MEDIUM',
+                        description: 'Soft decline should be handled gracefully'
+                    }
+                ]
+            }
+        ];
+
+        // ===== TEST STATE =====
+        let testResults = {
+            passed: 0,
+            failed: 0,
+            critical: 0,
+            total: 0,
+            completed: 0
+        };
+
+        // ===== UI FUNCTIONS =====
+        function initializeUI() {
+            const container = document.getElementById('test-categories');
+            let totalTests = 0;
+            
+            TEST_CASES.forEach(category => {
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = 'test-category';
+                
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'category-header';
+                headerDiv.textContent = category.category;
+                categoryDiv.appendChild(headerDiv);
+                
+                category.tests.forEach(test => {
+                    totalTests++;
+                    const testDiv = document.createElement('div');
+                    testDiv.className = 'test-item';
+                    testDiv.id = `test-${test.id}`;
+                    
+                    testDiv.innerHTML = `
+                        <div class="test-status pending" id="status-${test.id}">⏳</div>
+                        <div class="test-details">
+                            <div class="test-message">"${test.message}"</div>
+                            <div class="test-description">${test.description}</div>
+                            <span class="priority-badge priority-${test.priority.toLowerCase()}">${test.priority}</span>
+                            <div class="test-result" id="result-${test.id}" style="display: none;"></div>
+                        </div>
+                    `;
+                    
+                    categoryDiv.appendChild(testDiv);
+                });
+                
+                container.appendChild(categoryDiv);
+            });
+            
+            testResults.total = totalTests;
+        }
+
+        function updateStats() {
+            document.getElementById('passed-count').textContent = testResults.passed;
+            document.getElementById('failed-count').textContent = testResults.failed;
+            document.getElementById('critical-count').textContent = testResults.critical;
+            
+            const successRate = testResults.completed > 0 
+                ? Math.round((testResults.passed / testResults.completed) * 100)
+                : 0;
+            document.getElementById('success-rate').textContent = successRate + '%';
+            
+            const progressPercent = (testResults.completed / testResults.total) * 100;
+            document.getElementById('progress-fill').style.width = progressPercent + '%';
+        }
+
+        function updateTestStatus(testId, status, result = '') {
+            const statusEl = document.getElementById(`status-${testId}`);
+            const resultEl = document.getElementById(`result-${testId}`);
+            
+            switch(status) {
+                case 'running':
+                    statusEl.className = 'test-status running';
+                    statusEl.textContent = '⚡';
+                    break;
+                case 'pass':
+                    statusEl.className = 'test-status pass';
+                    statusEl.textContent = '✅';
+                    resultEl.className = 'test-result pass';
+                    resultEl.textContent = result;
+                    resultEl.style.display = 'block';
+                    break;
+                case 'fail':
+                    statusEl.className = 'test-status fail';
+                    statusEl.textContent = '❌';
+                    resultEl.className = 'test-result fail';
+                    resultEl.textContent = result;
+                    resultEl.style.display = 'block';
+                    break;
+                case 'critical-fail':
+                    statusEl.className = 'test-status critical-fail';
+                    statusEl.textContent = '🚨';
+                    resultEl.className = 'test-result fail';
+                    resultEl.textContent = '🚨 CRITICAL: ' + result;
+                    resultEl.style.display = 'block';
+                    break;
+            }
+        }
+
+        // ===== TEST EXECUTION =====
+        async function runTest(test) {
+            updateTestStatus(test.id, 'running');
+            
+            try {
+                const apiUrl = document.getElementById('api-url').value.trim();
+                if (!apiUrl) {
+                    throw new Error('API URL is required');
+                }
+                
+                // Setup phase if needed
+                let conversationId = 'test-' + test.id + '-' + Date.now();
+                if (test.setup) {
+                    await sendMessage("Tell me about cervical cancer", conversationId, apiUrl);
+                    await delay(1000);
+                }
+                
+                // Test phase
+                const response = await sendMessage(test.message, conversationId, apiUrl);
+                const validation = validateResponse(response, test);
+                
+                testResults.completed++;
+                
+                if (validation.passed) {
+                    testResults.passed++;
+                    updateTestStatus(test.id, 'pass', validation.reason);
+                } else {
+                    testResults.failed++;
+                    if (test.priority === 'CRITICAL') {
+                        testResults.critical++;
+                        updateTestStatus(test.id, 'critical-fail', validation.reason);
+                    } else {
+                        updateTestStatus(test.id, 'fail', validation.reason);
+                    }
+                }
+                
+            } catch (error) {
+                testResults.completed++;
+                testResults.failed++;
+                if (test.priority === 'CRITICAL') {
+                    testResults.critical++;
+                    updateTestStatus(test.id, 'critical-fail', `Network Error: ${error.message}`);
+                } else {
+                    updateTestStatus(test.id, 'fail', `Network Error: ${error.message}`);
+                }
+            }
+            
+            updateStats();
+        }
+
+        async function sendMessage(message, conversationId, apiUrl) {
+            const response = await fetch(`${apiUrl}/api/chat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: message,
+                    conversationId: conversationId
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            return await response.json();
+        }
+
+        function validateResponse(response, testCase) {
+            const botResponse = response.response?.toLowerCase() || '';
+            const hasEscalation = response.hasEscalation || false;
+            
+            switch (testCase.expectedFlow) {
+                case 'direct_escalation':
+                    if (botResponse.includes('consent') && (botResponse.includes('nurse') || botResponse.includes('support'))) {
+                        return { passed: true, reason: 'GDPR consent flow started' };
+                    }
+                    return { passed: false, reason: 'Expected consent flow, got: ' + botResponse.substring(0, 50) };
+                    
+                case 'arrangement_request':
+                    if (botResponse.includes('consent') || botResponse.includes('happy to connect')) {
+                        return { passed: true, reason: 'Arrangement request recognized' };
+                    }
+                    return { passed: false, reason: 'Arrangement not recognized: ' + botResponse.substring(0, 50) };
+                    
+                case 'offer_acceptance':
+                    if (botResponse.includes('consent') && botResponse.includes('collect some information')) {
+                        return { passed: true, reason: 'Offer acceptance triggered consent' };
+                    }
+                    return { passed: false, reason: 'Offer acceptance failed: ' + botResponse.substring(0, 50) };
+                    
+                case 'new_health_question':
+                    if (botResponse.includes('hpv') && !botResponse.includes('consent')) {
+                        return { passed: true, reason: 'New question answered properly' };
+                    }
+                    return { passed: false, reason: 'New question not handled: ' + botResponse.substring(0, 50) };
+                    
+                case 'offer_declined':
+                    if (botResponse.includes('no problem') || botResponse.includes('here if you need')) {
+                        return { passed: true, reason: 'Decline handled gracefully' };
+                    }
+                    return { passed: false, reason: 'Decline not handled well: ' + botResponse.substring(0, 50) };
+                    
+                default:
+                    return { passed: false, reason: 'Unknown expected flow: ' + testCase.expectedFlow };
+            }
+        }
+
+        async function runAllTests() {
+            const runBtn = document.getElementById('run-tests-btn');
+            const progressBar = document.getElementById('progress-bar');
+            
+            runBtn.disabled = true;
+            runBtn.textContent = '🔄 Running Tests...';
+            progressBar.style.display = 'block';
+            
+            // Reset results
+            testResults = {
+                passed: 0,
+                failed: 0,
+                critical: 0,
+                total: testResults.total,
+                completed: 0
+            };
+            
+            // Run all tests
+            for (const category of TEST_CASES) {
+                for (const test of category.tests) {
+                    await runTest(test);
+                    await delay(2000); // Prevent rate limiting
+                }
+            }
+            
+            // Complete
+            runBtn.disabled = false;
+            runBtn.textContent = '🚀 Run All Tests';
+            
+            if (testResults.critical > 0) {
+                alert(`🚨 ${testResults.critical} CRITICAL FAILURES DETECTED!\n\nThese are patient safety risks and must be fixed before deployment.`);
+            } else if (testResults.failed > 0) {
+                alert(`⚠️ ${testResults.failed} tests failed, but no critical failures.`);
+            } else {
+                alert('🎉 All tests passed! Patient safety validated.');
+            }
+        }
+
+        function clearResults() {
+            // Reset all test statuses
+            TEST_CASES.forEach(category => {
+                category.tests.forEach(test => {
+                    updateTestStatus(test.id, 'pending');
+                    document.getElementById(`result-${test.id}`).style.display = 'none';
+                });
+            });
+            
+            // Reset stats
+            testResults = {
+                passed: 0,
+                failed: 0,
+                critical: 0,
+                total: testResults.total,
+                completed: 0
+            };
+            updateStats();
+            
+            document.getElementById('progress-bar').style.display = 'none';
+        }
+
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initializeUI);
+    </script>
+</body>
+</html>
