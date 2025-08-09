@@ -467,30 +467,43 @@ Be empathetic, supportive, and always recommend consulting a GP for medical conc
         await context.sendActivity(escalationResult.response);
         
       } else {
-        // STEP 2B: Check for nurse escalation triggers
-        const escalationTrigger = this.detectNurseEscalationTrigger(messageText, conversationData.conversationHistory);
+        // STEP 2B: Check if user is responding positively to a previous support offer
+        const isPreviousSupportOfferResponse = this.isPreviousSupportOfferResponse(messageText, conversationData.conversationHistory);
         
-        if (escalationTrigger) {
-          this.logger.info('🩺 NURSE ESCALATION TRIGGER DETECTED', {
-            scenario: escalationTrigger.scenario,
-            priority: escalationTrigger.priority,
-            uatCard: escalationTrigger.uatCard,
-            userId
+        if (isPreviousSupportOfferResponse) {
+          this.logger.info('🩺 USER ACCEPTED NURSE SUPPORT OFFER');
+          
+          // Start GDPR consent flow for nurse escalation
+          const escalationFlow = this.startNurseEscalationFlow({
+            pattern: /./,
+            scenario: 'support_accepted',
+            priority: 'medium',
+            description: 'User accepted nurse support offer'
           });
           
-          // Offer nurse escalation
-          const escalationOffer = this.generateNurseEscalationOffer(escalationTrigger);
-          await context.sendActivity(escalationOffer);
-          
-          // Start escalation workflow if user shows interest
-          const escalationFlow = this.startNurseEscalationFlow(escalationTrigger);
           conversationData.escalationState = escalationFlow.escalationState;
           await context.sendActivity(escalationFlow.response);
           
         } else {
-          // STEP 2C: Normal Healthcare Information with RAG Pipeline (MHRA Compliant)
+          // STEP 2C: Always provide healthcare information first (MHRA Compliant)
           const healthcareResponse = await this.generateHealthcareResponseWithRAG(messageText);
           await context.sendActivity(healthcareResponse);
+          
+          // STEP 2D: Then check if user might benefit from additional nurse support
+          const escalationTrigger = this.detectNurseEscalationTrigger(messageText, conversationData.conversationHistory);
+          
+          if (escalationTrigger) {
+            this.logger.info('🩺 ADDITIONAL SUPPORT SUGGESTED', {
+              scenario: escalationTrigger.scenario,
+              priority: escalationTrigger.priority,
+              uatCard: escalationTrigger.uatCard,
+              userId
+            });
+            
+            // Suggest nurse support as follow-up (don't auto-start GDPR flow)
+            const supportOffer = this.generateSupportSuggestion(escalationTrigger);
+            await context.sendActivity(supportOffer);
+          }
         }
       }
 
@@ -1059,6 +1072,57 @@ What else would you like to know? I'm here to support you.
     };
     
     return offers[trigger.scenario] || offers.support_request;
+  }
+
+  /**
+   * Generate gentle support suggestion without auto-starting GDPR flow
+   */
+  private generateSupportSuggestion(trigger: EscalationTrigger): string {
+    const suggestions: Record<string, string> = {
+      emotional_distress: "If you'd like to talk through your concerns with someone who really understands, our Ask Eve nurses are here for you. Would you like me to arrange for one to get in touch?",
+      
+      acute_distress: "It sounds like you're going through a really difficult time. Our Ask Eve nurses are specially trained to provide support in situations like this. Would you like me to connect you with one of them?",
+      
+      direct_request: "I'd be happy to arrange for you to speak with one of our Ask Eve nurses. They can provide personalised support and answer any questions I haven't been able to help with. Shall I set that up for you?",
+      
+      support_request: "Our Ask Eve nurses can offer additional support and guidance beyond what I can provide. Would you like me to arrange for one to contact you?",
+      
+      access_barriers: "Our Ask Eve nurses have experience helping people navigate healthcare challenges like this. They might be able to suggest alternative options or help you get the care you need. Would you like me to connect you?",
+      
+      system_navigation: "Our Ask Eve nurses are really good at helping people understand the healthcare system and patient rights. Would you like me to arrange for one to support you?",
+      
+      post_information_anxiety: "I can see you might need some additional support to feel more confident about this. Our Ask Eve nurses specialise in helping people work through health concerns. Would you like to speak with one?",
+      
+      carer_support: "Supporting someone with cancer is incredibly challenging. Our Ask Eve nurses have lots of experience helping partners, carers and families. Would you like me to arrange for one to speak with you?",
+      
+      healthcare_navigation: "Our Ask Eve nurses can help you understand your options and plan the best next steps. Would you like me to connect you with one of them?"
+    };
+    
+    return suggestions[trigger.scenario] || suggestions.support_request;
+  }
+
+  /**
+   * Check if user is responding positively to a previous support offer
+   * Note: This is a simplified approach - in production, you'd track conversation state more precisely
+   */
+  private isPreviousSupportOfferResponse(message: string, conversationHistory: string[]): boolean {
+    const lowerMessage = message.toLowerCase().trim();
+    
+    // Only match very clear positive responses to avoid false matches
+    const clearPositiveResponses = [
+      'yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'yes please',
+      'that would be helpful', 'that would help', 'please arrange', 
+      'please set that up', 'connect me', 'arrange that', 'i would like that'
+    ];
+    
+    // For now, disable this feature until we can implement proper conversation state tracking
+    // TODO: Implement proper conversation state to track when support offers are made
+    return false;
+    
+    // Future implementation would:
+    // 1. Track when support offers are sent in conversation state
+    // 2. Check if current message is a positive response
+    // 3. Only trigger if previous bot action was a support offer
   }
 
   /**
